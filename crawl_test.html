@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Crawl Test — Create, Monitor & Embed</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+      min-height: 100vh;
+      padding: 24px;
+      color: #e0e0e0;
+    }
+
+    h1 {
+      text-align: center;
+      color: #fff;
+      font-size: 1.8rem;
+      margin-bottom: 6px;
+      letter-spacing: 1px;
+    }
+    h1 span { color: #53d8fb; }
+
+    .subtitle {
+      text-align: center;
+      color: #8899aa;
+      font-size: 0.85rem;
+      margin-bottom: 24px;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 380px 1fr;
+      gap: 20px;
+      max-width: 1300px;
+      margin: 0 auto;
+    }
+
+    .sidebar { display: flex; flex-direction: column; gap: 16px; }
+    .main-panel { display: flex; flex-direction: column; gap: 16px; }
+
+    .card {
+      background: #1e2a3a;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+    }
+
+    .card h2 {
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: #53d8fb;
+      margin-bottom: 14px;
+      border-bottom: 1px solid #2d3d50;
+      padding-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .step-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: #53d8fb;
+      color: #0f1e2e;
+      font-size: 0.72rem;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    label {
+      display: block;
+      font-size: 0.78rem;
+      color: #8899aa;
+      margin-bottom: 4px;
+      margin-top: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    label:first-of-type { margin-top: 0; }
+
+    input, select {
+      width: 100%;
+      background: #111c28;
+      border: 1px solid #2d3d50;
+      border-radius: 6px;
+      color: #e0e0e0;
+      padding: 8px 10px;
+      font-size: 0.9rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    input:focus, select:focus { border-color: #53d8fb; }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 12px;
+      padding: 9px 18px;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      font-size: 0.88rem;
+      font-weight: 600;
+      transition: opacity 0.2s, transform 0.1s;
+    }
+    .btn:active { transform: scale(0.97); }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-primary  { background: #53d8fb; color: #0f1e2e; }
+    .btn-success  { background: #2ecc71; color: #0f1e2e; }
+    .btn-warning  { background: #f39c12; color: #0f1e2e; }
+    .btn-danger   { background: #e74c3c; color: #fff; }
+    .btn-sm       { padding: 5px 12px; font-size: 0.8rem; margin-top: 0; }
+    .btn-full     { width: 100%; justify-content: center; }
+
+    .status-badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 0.78rem;
+      font-weight: 600;
+    }
+    .badge-initiated  { background: #2d3d50; color: #8899aa; }
+    .badge-crawling   { background: #1a4a7a; color: #53d8fb; }
+    .badge-crawled    { background: #1a4a2e; color: #2ecc71; }
+    .badge-error      { background: #4a1a1a; color: #e74c3c; }
+    .badge-pending    { background: #3a3a1a; color: #f39c12; }
+    .badge-completed  { background: #1a4a2e; color: #2ecc71; }
+    .badge-failed     { background: #4a1a1a; color: #e74c3c; }
+    .badge-unknown    { background: #2d3d50; color: #8899aa; }
+
+    .info-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 0;
+      border-bottom: 1px solid #2d3d50;
+      font-size: 0.83rem;
+    }
+    .info-row:last-child { border-bottom: none; }
+    .info-row .lbl { color: #8899aa; }
+    .info-row .val {
+      font-family: monospace;
+      font-size: 0.78rem;
+      color: #c8d8e8;
+      word-break: break-all;
+      text-align: right;
+      max-width: 220px;
+    }
+
+    .alert {
+      padding: 10px 14px;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      margin-top: 10px;
+    }
+    .alert-success { background: #1a4a2e; color: #2ecc71; border-left: 3px solid #2ecc71; }
+    .alert-error   { background: #4a1a1a; color: #e74c3c; border-left: 3px solid #e74c3c; }
+    .alert-info    { background: #1a3a4a; color: #53d8fb; border-left: 3px solid #53d8fb; }
+
+    /* Links table */
+    .links-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+      flex-wrap: wrap;
+    }
+
+    .links-summary {
+      font-size: 0.8rem;
+      color: #8899aa;
+      margin-left: auto;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      max-height: 340px;
+      overflow-y: auto;
+      border-radius: 8px;
+      border: 1px solid #2d3d50;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.83rem;
+    }
+    thead th {
+      position: sticky;
+      top: 0;
+      background: #111c28;
+      color: #8899aa;
+      text-transform: uppercase;
+      font-size: 0.75rem;
+      letter-spacing: 0.5px;
+      padding: 10px 12px;
+      text-align: left;
+      border-bottom: 1px solid #2d3d50;
+    }
+    tbody tr {
+      border-bottom: 1px solid #1e2a3a;
+      transition: background 0.15s;
+    }
+    tbody tr:hover { background: #1a2a3a; }
+    tbody td { padding: 8px 12px; color: #c8d8e8; vertical-align: middle; }
+    tbody td.url-cell {
+      max-width: 480px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-family: monospace;
+      font-size: 0.78rem;
+    }
+    input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      cursor: pointer;
+      accent-color: #53d8fb;
+    }
+
+    .polling-dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #53d8fb;
+      animation: pulse 1.2s infinite;
+      margin-right: 6px;
+      vertical-align: middle;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.7); }
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(83, 216, 251, 0.3);
+      border-top-color: #53d8fb;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      vertical-align: middle;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+<h1>Web Crawler Test <span>— Temp UI</span></h1>
+<p class="subtitle">Temporary dev UI — will be replaced by the frontend</p>
+
+<div class="layout">
+  <!-- ───────── LEFT SIDEBAR ───────── -->
+  <div class="sidebar">
+
+    <!-- Auth -->
+    <div class="card">
+      <h2>🔑 API Key</h2>
+      <label>X-Shared-Key</label>
+      <input id="apiKey" type="password" placeholder="Enter shared key" />
+    </div>
+
+    <!-- Step 1: Create Crawl -->
+    <div class="card">
+      <h2><span class="step-badge">1</span> Create Crawl</h2>
+      <label>URL to crawl</label>
+      <input id="crawlUrl" type="url" placeholder="https://example.com" />
+      <label>Crawl mode</label>
+      <select id="crawlMode">
+        <option value="single">single — base URL only</option>
+        <option value="full">full — follow same-domain links</option>
+      </select>
+      <button class="btn btn-primary btn-full" onclick="createCrawl()">
+        <span id="createSpinner" class="spinner hidden"></span>
+        Create Crawl
+      </button>
+      <div id="createAlert" class="hidden"></div>
+    </div>
+
+    <!-- Step 2: Start Crawl via Webhook -->
+    <div class="card" id="step2Card">
+      <h2><span class="step-badge">2</span> Start Crawl</h2>
+      <div class="info-row"><span class="lbl">Crawler ID</span><span class="val" id="crawlerIdDisplay">—</span></div>
+      <div class="info-row"><span class="lbl">DataSource ID</span><span class="val" id="dsIdDisplay">—</span></div>
+      <button id="startCrawlBtn" class="btn btn-warning btn-full" onclick="startCrawl()" disabled>
+        <span id="startSpinner" class="spinner hidden"></span>
+        Fire Webhook → Start Crawling
+      </button>
+      <div id="webhookAlert" class="hidden"></div>
+    </div>
+
+    <!-- Status -->
+    <div class="card" id="statusCard">
+      <h2><span class="polling-dot" id="pollingDot"></span> Crawler Status</h2>
+      <div class="info-row">
+        <span class="lbl">Status</span>
+        <span id="statusBadge" class="status-badge badge-unknown">—</span>
+      </div>
+      <div class="info-row"><span class="lbl">Base URL</span><span class="val" id="statusUrl">—</span></div>
+      <div class="info-row"><span class="lbl">Mode</span><span class="val" id="statusMode">—</span></div>
+      <div id="statusError" class="alert alert-error hidden"></div>
+    </div>
+
+    <!-- Step 4: Embed -->
+    <div class="card">
+      <h2><span class="step-badge">4</span> Embed Selected Pages</h2>
+      <p style="font-size:0.82rem;color:#8899aa;margin-bottom:10px;">
+        After saving selection, embed the chosen pages into the vector store.
+      </p>
+      <label>
+        <input type="checkbox" id="retryEmbed" style="width:auto;margin-right:6px;" />
+        Retry (re-embed even if already embedded)
+      </label>
+      <button id="embedBtn" class="btn btn-success btn-full" onclick="embedWebsite()" disabled>
+        <span id="embedSpinner" class="spinner hidden"></span>
+        Embed Selected Pages
+      </button>
+      <div id="embedAlert" class="hidden"></div>
+    </div>
+
+  </div>
+
+  <!-- ───────── MAIN PANEL ───────── -->
+  <div class="main-panel">
+    <div class="card" style="flex:1">
+      <h2><span class="step-badge">3</span> Discovered Pages</h2>
+
+      <div class="links-toolbar">
+        <button class="btn btn-sm btn-primary" onclick="selectAll(true)">Select All</button>
+        <button class="btn btn-sm btn-danger" onclick="selectAll(false)">Deselect All</button>
+        <button id="saveSelBtn" class="btn btn-sm btn-success" onclick="saveSelection()" disabled>
+          <span id="saveSpinner" class="spinner hidden"></span>
+          Save Selection
+        </button>
+        <button class="btn btn-sm" style="background:#2d3d50;color:#c8d8e8;" onclick="refreshLinks()">↻ Refresh</button>
+        <span class="links-summary" id="linksSummary">No links yet</span>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:40px">Select</th>
+              <th>URL</th>
+              <th style="width:90px">Fetched</th>
+              <th style="width:80px">Type</th>
+              <th style="width:90px">Size</th>
+            </tr>
+          </thead>
+          <tbody id="linksBody">
+            <tr>
+              <td colspan="5" style="text-align:center;color:#8899aa;padding:30px 0;">
+                Create a crawl job and start it — discovered pages will appear here.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ── State ──────────────────────────────────────────────────────────────────
+  let crawlerId = null;
+  let dataSourceId = null;
+
+  // ── Helpers ────────────────────────────────────────────────────────────────
+  function apiKey() {
+    return document.getElementById('apiKey').value.trim();
+  }
+
+  function headers(withJson = true) {
+    const h = { 'X-Shared-Key': apiKey() };
+    if (withJson) h['Content-Type'] = 'application/json';
+    return h;
+  }
+
+  function showAlert(id, msg, type = 'info') {
+    const el = document.getElementById(id);
+    el.className = `alert alert-${type}`;
+    el.textContent = msg;
+    el.classList.remove('hidden');
+  }
+
+  function hideAlert(id) {
+    document.getElementById(id).classList.add('hidden');
+  }
+
+  function badgeClass(status) {
+    const map = {
+      initiated: 'badge-initiated',
+      crawling: 'badge-crawling',
+      crawled: 'badge-crawled',
+      error: 'badge-error',
+      pending: 'badge-pending',
+      completed: 'badge-completed',
+      failed: 'badge-failed',
+    };
+    return map[status] || 'badge-unknown';
+  }
+
+  function fmtSize(bytes) {
+    if (!bytes) return '—';
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / 1048576).toFixed(2) + ' MB';
+  }
+
+  function spin(id, on) {
+    document.getElementById(id).classList.toggle('hidden', !on);
+  }
+
+  // ── Step 1: Create Crawl ──────────────────────────────────────────────────
+  async function createCrawl() {
+    const url = document.getElementById('crawlUrl').value.trim();
+    if (!url) { showAlert('createAlert', 'Please enter a URL.', 'error'); return; }
+    if (!apiKey()) { showAlert('createAlert', 'Please enter your API key.', 'error'); return; }
+    hideAlert('createAlert');
+    spin('createSpinner', true);
+
+    try {
+      const res = await fetch('http://127.0.0.1:9090/api/crawl', {
+        method: 'POST',
+        headers: headers(),
+        body: JSON.stringify({ url, crawl_mode: document.getElementById('crawlMode').value }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        showAlert('createAlert', data.detail || 'Failed to create crawl.', 'error');
+        return;
+      }
+      crawlerId = data.crawler_id;
+      dataSourceId = data.data_source_id;
+
+      document.getElementById('crawlerIdDisplay').textContent = crawlerId;
+      document.getElementById('dsIdDisplay').textContent = dataSourceId;
+      document.getElementById('startCrawlBtn').disabled = false;
+      document.getElementById('saveSelBtn').disabled = false;
+      document.getElementById('embedBtn').disabled = false;
+      showAlert('createAlert', 'Crawl job created! Fire the webhook to start crawling.', 'success');
+    } catch (e) {
+      showAlert('createAlert', 'Network error: ' + e.message, 'error');
+    } finally {
+      spin('createSpinner', false);
+    }
+  }
+
+  // ── Step 2: Fire Webhook ──────────────────────────────────────────────────
+  async function startCrawl() {
+    if (!crawlerId) return;
+    hideAlert('webhookAlert');
+    spin('startSpinner', true);
+    document.getElementById('startCrawlBtn').disabled = true;
+
+    try {
+      const res = await fetch('http://127.0.0.1:9090/api/webhook/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          event: 'crawler.invoke',
+          data: { crawler_id: crawlerId, is_retry: false },
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        showAlert('webhookAlert', data.detail || 'Webhook failed.', 'error');
+        document.getElementById('startCrawlBtn').disabled = false;
+      } else {
+        showAlert('webhookAlert', 'Crawl task enqueued! Waiting for completion…', 'success');
+        waitForCrawl();
+      }
+    } catch (e) {
+      showAlert('webhookAlert', 'Network error: ' + e.message, 'error');
+      document.getElementById('startCrawlBtn').disabled = false;
+    } finally {
+      spin('startSpinner', false);
+    }
+  }
+
+  // ── Wait for crawl (single blocking request, no polling) ─────────────────
+  async function waitForCrawl() {
+    if (!crawlerId) return;
+    document.getElementById('pollingDot').style.display = 'inline-block';
+    try {
+      const res = await fetch(`http://127.0.0.1:9090/api/crawl/${crawlerId}/wait`, { headers: headers(false) });
+      const data = await res.json();
+      const status = res.ok ? data.status : 'error';
+
+      document.getElementById('statusBadge').textContent = status;
+      document.getElementById('statusBadge').className = `status-badge ${badgeClass(status)}`;
+      document.getElementById('statusUrl').textContent = data.base_url || '—';
+      document.getElementById('statusMode').textContent = data.crawl_mode || '—';
+
+      if (data.error) {
+        document.getElementById('statusError').textContent = data.error.message || JSON.stringify(data.error);
+        document.getElementById('statusError').classList.remove('hidden');
+      } else {
+        document.getElementById('statusError').classList.add('hidden');
+      }
+
+      if (status === 'crawled') loadLinks();
+    } catch (_) {}
+    document.getElementById('pollingDot').style.display = 'none';
+  }
+
+  async function refreshLinks() {
+    if (!crawlerId) return;
+    await loadLinks();
+  }
+
+  async function loadLinks() {
+    if (!crawlerId) return;
+    try {
+      const res = await fetch(`http://127.0.0.1:9090/api/crawl/${crawlerId}/links`, { headers: headers(false) });
+      if (!res.ok) return;
+      const links = await res.json();
+      renderLinks(links);
+    } catch (_) {}
+  }
+
+  function renderLinks(links) {
+    const tbody = document.getElementById('linksBody');
+    if (!links || links.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#8899aa;padding:30px 0;">No links discovered yet.</td></tr>';
+      document.getElementById('linksSummary').textContent = '0 links';
+      return;
+    }
+
+    const selected = links.filter(l => l.is_selected).length;
+    const fetched = links.filter(l => l.is_fetched).length;
+    document.getElementById('linksSummary').textContent =
+      `${links.length} links · ${fetched} fetched · ${selected} selected`;
+
+    tbody.innerHTML = links.map(link => `
+      <tr>
+        <td style="text-align:center;">
+          <input type="checkbox" data-link-id="${link.id}"
+            ${link.is_selected ? 'checked' : ''} />
+        </td>
+        <td class="url-cell" title="${escHtml(link.url)}">${escHtml(link.url)}</td>
+        <td>
+          <span class="status-badge ${link.is_fetched ? 'badge-crawled' : 'badge-initiated'}">
+            ${link.is_fetched ? 'Yes' : 'No'}
+          </span>
+        </td>
+        <td style="color:#8899aa;font-size:0.78rem;">${link.mime_type || '—'}</td>
+        <td style="color:#8899aa;">${fmtSize(link.media_size)}</td>
+      </tr>
+    `).join('');
+  }
+
+  function escHtml(str) {
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function selectAll(checked) {
+    document.querySelectorAll('#linksBody input[type="checkbox"]').forEach(cb => cb.checked = checked);
+  }
+
+  // ── Save Selection ────────────────────────────────────────────────────────
+  async function saveSelection() {
+    if (!crawlerId) return;
+    const checkboxes = document.querySelectorAll('#linksBody input[type="checkbox"][data-link-id]');
+    if (!checkboxes.length) { showAlert('webhookAlert', 'No links to save.', 'error'); return; }
+
+    const selections = Array.from(checkboxes).map(cb => ({
+      id: cb.dataset.linkId,
+      is_selected: cb.checked,
+    }));
+
+    spin('saveSpinner', true);
+    document.getElementById('saveSelBtn').disabled = true;
+
+    try {
+      const res = await fetch(`http://127.0.0.1:9090/api/crawl/${crawlerId}/links`, {
+        method: 'PATCH',
+        headers: headers(),
+        body: JSON.stringify({ selections }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        showAlert('webhookAlert', data.detail || 'Failed to save selection.', 'error');
+      } else {
+        renderLinks(data);
+        showAlert('webhookAlert', 'Selection saved! Ready to embed.', 'success');
+      }
+    } catch (e) {
+      showAlert('webhookAlert', 'Network error: ' + e.message, 'error');
+    } finally {
+      spin('saveSpinner', false);
+      document.getElementById('saveSelBtn').disabled = false;
+    }
+  }
+
+  // ── Step 4: Embed ─────────────────────────────────────────────────────────
+  async function embedWebsite() {
+    if (!dataSourceId) return;
+    if (!apiKey()) { showAlert('embedAlert', 'Please enter your API key.', 'error'); return; }
+    hideAlert('embedAlert');
+    spin('embedSpinner', true);
+    document.getElementById('embedBtn').disabled = true;
+
+    const retry = document.getElementById('retryEmbed').checked;
+
+    try {
+      const res = await fetch('http://127.0.0.1:9090/api/rag/embed', {
+        method: 'POST',
+        headers: headers(),
+        body: JSON.stringify({
+          type: 'website',
+          data: { id: dataSourceId },
+          retry,
+        }),
+      });
+
+      if (res.status === 202) {
+        showAlert('embedAlert', 'Embedding task queued successfully!', 'success');
+      } else if (res.status === 204) {
+        showAlert('embedAlert', 'Already embedded. Pass retry=true to re-embed.', 'info');
+      } else {
+        const data = await res.json();
+        showAlert('embedAlert', data.detail || 'Embedding failed.', 'error');
+      }
+    } catch (e) {
+      showAlert('embedAlert', 'Network error: ' + e.message, 'error');
+    } finally {
+      spin('embedSpinner', false);
+      document.getElementById('embedBtn').disabled = false;
+    }
+  }
+</script>
+</body>
+</html>

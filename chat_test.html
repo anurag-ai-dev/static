@@ -1,0 +1,2863 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BizJapan AI - Chat Tests</title>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .main-wrapper {
+            max-width: 1600px;
+            margin: 0 auto;
+            display: flex;
+            gap: 20px;
+            align-items: flex-start;
+        }
+
+        .container {
+            flex: 1;
+            max-width: 900px;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+        }
+
+        .markdown-panel {
+            flex: 0 0 600px;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            max-height: calc(100vh - 40px);
+            overflow: hidden;
+            display: none;
+            flex-direction: column;
+        }
+
+        .markdown-panel.active {
+            display: flex;
+        }
+
+        .markdown-header {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .markdown-header h2 {
+            margin: 0;
+            font-size: 20px;
+        }
+
+        .markdown-close {
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .markdown-close:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .markdown-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 30px;
+        }
+
+        .markdown-content h1 {
+            color: #667eea;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 10px;
+            margin-top: 0;
+        }
+
+        .markdown-content h2 {
+            color: #10b981;
+            margin-top: 30px;
+            margin-bottom: 15px;
+        }
+
+        .markdown-content h3 {
+            color: #764ba2;
+            margin-top: 25px;
+            margin-bottom: 10px;
+        }
+
+        .markdown-content hr {
+            border: none;
+            border-top: 2px solid #e5e7eb;
+            margin: 20px 0;
+        }
+
+        .markdown-content a {
+            color: #667eea;
+            text-decoration: none;
+        }
+
+        .markdown-content a:hover {
+            text-decoration: underline;
+        }
+
+        .markdown-content p {
+            line-height: 1.6;
+            margin-bottom: 15px;
+        }
+
+        .markdown-content strong {
+            color: #333;
+        }
+
+        .markdown-content ul, .markdown-content ol {
+            padding-left: 25px;
+            margin-bottom: 15px;
+        }
+
+        .markdown-content li {
+            margin-bottom: 8px;
+            line-height: 1.6;
+        }
+
+        .markdown-content code {
+            background: #f3f4f6;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+        }
+
+        .markdown-content pre {
+            background: #f3f4f6;
+            padding: 15px;
+            border-radius: 8px;
+            overflow-x: auto;
+        }
+
+        .markdown-content pre code {
+            background: none;
+            padding: 0;
+        }
+
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 25px;
+            text-align: center;
+        }
+
+        header h1 {
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+
+        .connection-status {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 12px;
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .connection-status.connected {
+            background: #10b981;
+        }
+
+        .connection-status.disconnected {
+            background: #ef4444;
+        }
+
+        .content {
+            padding: 25px;
+        }
+
+        .section {
+            margin-bottom: 30px;
+        }
+
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e5e7eb;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: #555;
+        }
+
+        input, select, textarea {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .control-panel {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .control-panel button {
+            padding: 10px 18px;
+            font-size: 13px;
+        }
+
+        .control-panel .cancel-btn {
+            background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+        }
+
+        .control-panel .continue-btn {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        }
+
+        .control-panel .restart-btn {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        }
+
+        .control-panel .regenerate-btn {
+            background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
+        }
+
+        .chat-container {
+            display: none;
+        }
+
+        .chat-container.active {
+            display: block;
+        }
+
+        .chat-box {
+            background: #f9fafb;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            height: 400px;
+            overflow-y: auto;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+
+        .message {
+            margin-bottom: 15px;
+            padding: 12px;
+            border-radius: 8px;
+            max-width: 80%;
+            animation: fadeIn 0.3s;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .message.user {
+            background: #667eea;
+            color: white;
+            margin-left: auto;
+            text-align: right;
+        }
+
+        .message.assistant {
+            background: white;
+            border: 2px solid #e5e7eb;
+            color: #333;
+        }
+
+        .message.system {
+            background: #fef3c7;
+            color: #92400e;
+            text-align: center;
+            max-width: 100%;
+            font-size: 13px;
+        }
+
+        .message-time {
+            font-size: 11px;
+            opacity: 0.7;
+            margin-top: 5px;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        .input-group input {
+            flex: 1;
+        }
+
+        .progress-container {
+            display: none;
+            background: #f0f9ff;
+            border: 2px solid #bae6fd;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .progress-container.active {
+            display: block;
+        }
+
+        .progress-label {
+            font-weight: 600;
+            color: #0369a1;
+            margin-bottom: 10px;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 25px;
+            background: #e0f2fe;
+            border-radius: 12px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #0ea5e9, #0284c7);
+            width: 0%;
+            transition: width 0.5s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .session-info {
+            background: #f0fdf4;
+            border: 2px solid #bbf7d0;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .session-info.active {
+            display: block;
+        }
+
+        .session-info-item {
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        .session-info-label {
+            font-weight: 600;
+            color: #166534;
+        }
+
+        .notification {
+            background: #fef3c7;
+            border-left: 4px solid #f59e0b;
+            padding: 12px;
+            margin-bottom: 15px;
+            border-radius: 4px;
+            display: none;
+        }
+
+        .notification.active {
+            display: block;
+            animation: slideIn 0.3s;
+        }
+
+        @keyframes slideIn {
+            from { transform: translateX(-20px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        .error {
+            background: #fee2e2;
+            border: 2px solid #fecaca;
+            color: #991b1b;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            display: none;
+        }
+
+        .error.active {
+            display: block;
+        }
+
+        .generate-message {
+            display: none;
+            margin-top: 12px;
+            padding: 12px;
+            border-radius: 8px;
+            border: 2px solid #bfdbfe;
+            background: #eff6ff;
+            color: #1e3a8a;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+
+        .fields-info {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .field-card {
+            background: white;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 15px;
+        }
+
+        .field-card-title {
+            font-weight: 600;
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+
+        .field-item {
+            font-size: 12px;
+            color: #666;
+            padding: 4px 0;
+        }
+
+        .content-previews-container {
+            margin-top: 15px;
+            padding: 10px;
+            background: #f9fafb;
+            border-radius: 8px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .content-previews-container.hidden {
+            display: none;
+        }
+
+        .content-preview-card {
+            background: white;
+            border: 2px solid #10b981;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+            animation: slideInUp 0.3s;
+        }
+
+        .content-preview-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+        }
+
+        .content-preview-card.active-review {
+            border-color: #667eea;
+            background: #f0f4ff;
+        }
+
+        .content-preview-card:last-child {
+            margin-bottom: 0;
+        }
+
+        @keyframes slideInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fadeOut {
+            from {
+                opacity: 1;
+                transform: translateY(0);
+            }
+            to {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+        }
+
+        .content-preview-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 5px;
+        }
+
+        .content-preview-title {
+            font-weight: 600;
+            color: #10b981;
+            font-size: 14px;
+        }
+
+        .content-preview-badge {
+            background: #10b981;
+            color: white;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .content-preview-subtitle {
+            font-size: 12px;
+            color: #6b7280;
+            margin-bottom: 8px;
+        }
+
+        .content-preview-action {
+            font-size: 12px;
+            color: #667eea;
+            font-weight: 500;
+        }
+
+        .content-preview-action:hover {
+            text-decoration: underline;
+        }
+
+        .content-previews-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: #059669;
+            margin-bottom: 10px;
+            padding-bottom: 5px;
+            border-bottom: 2px solid #d1fae5;
+        }
+
+        .attach-btn {
+            background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
+            padding: 12px 16px;
+            font-size: 16px;
+            flex-shrink: 0;
+        }
+
+        .attach-btn:hover {
+            background: linear-gradient(135deg, #4b5563 0%, #374151 100%);
+        }
+
+        .pending-file-chip {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: #eff6ff;
+            border: 2px solid #bfdbfe;
+            border-radius: 8px;
+            padding: 8px 12px;
+            margin-bottom: 10px;
+            font-size: 13px;
+            color: #1e40af;
+        }
+
+        .pending-file-chip .chip-icon {
+            font-size: 16px;
+        }
+
+        .pending-file-chip .chip-name {
+            flex: 1;
+            font-weight: 500;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .pending-file-chip .chip-status {
+            font-size: 11px;
+            color: #6b7280;
+        }
+
+        .pending-file-chip .chip-remove {
+            background: none;
+            border: none;
+            color: #6b7280;
+            cursor: pointer;
+            padding: 2px 6px;
+            font-size: 16px;
+            border-radius: 4px;
+            line-height: 1;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .pending-file-chip .chip-remove:hover {
+            background: #fee2e2;
+            color: #dc2626;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .message-attachments {
+            margin-top: 8px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .msg-file-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            background: rgba(255,255,255,0.15);
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 6px;
+            padding: 4px 10px;
+            font-size: 12px;
+            text-decoration: none;
+            color: inherit;
+            max-width: 220px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .msg-file-chip:hover {
+            background: rgba(255,255,255,0.25);
+        }
+
+        .message.assistant .msg-file-chip {
+            background: #f3f4f6;
+            border-color: #d1d5db;
+            color: #374151;
+        }
+
+        .message.assistant .msg-file-chip:hover {
+            background: #e5e7eb;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(1.2); }
+        }
+
+        #pttBtn.recording {
+            background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%) !important;
+            animation: pulse 1.5s infinite;
+        }
+
+        #pttBtn:disabled {
+            background: linear-gradient(135deg, #9ca3af 0%, #6b7280 100%) !important;
+        }
+
+        .tts-controls {
+            display: flex;
+            gap: 8px;
+            margin-top: 8px;
+            padding: 8px;
+            background: #f0f9ff;
+            border-radius: 6px;
+            border: 1px solid #bae6fd;
+        }
+
+        .tts-btn {
+            background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
+            padding: 6px 12px;
+            font-size: 12px;
+            border-radius: 4px;
+        }
+
+        .tts-btn:hover {
+            transform: none;
+            box-shadow: 0 2px 8px rgba(14, 165, 233, 0.3);
+        }
+
+        .tts-btn:disabled {
+            background: linear-gradient(135deg, #9ca3af 0%, #6b7280 100%);
+        }
+
+        .tts-playing {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        }
+    </style>
+</head>
+<body>
+    <div class="main-wrapper">
+        <!-- Markdown Panel -->
+        <div class="markdown-panel" id="markdownPanel">
+            <div class="markdown-header">
+                <h2> Market Research Report</h2>
+                <button class="markdown-close" onclick="closeMarkdownPanel()">×</button>
+            </div>
+            <!-- Section selector bar — shown only during final review -->
+            <div id="finalReviewBar" style="display:none; background:#f3f4f6; padding:10px 20px; border-bottom:1px solid #e5e7eb; align-items:center; flex-wrap:wrap; gap:8px;">
+                <label style="font-weight:600; font-size:13px; color:#374151;">Select section to edit:</label>
+                <select id="finalReviewSectionSelect" onchange="onFinalReviewSectionChange()" style="padding:6px 10px; border-radius:6px; border:1px solid #d1d5db; font-size:13px; flex:1; min-width:160px;">
+                    <option value="">— choose a section —</option>
+                </select>
+                <button onclick="approveFinalReview()" style="background:linear-gradient(135deg,#10b981,#059669); padding:7px 16px; font-size:13px; border-radius:6px; white-space:nowrap;">&#10003; Approve &amp; Write</button>
+            </div>
+            <div class="markdown-content" id="markdownContent">
+                <p style="text-align: center; color: #9ca3af; margin-top: 50px;">
+                    Market research content will appear here...
+                </p>
+            </div>
+        </div>
+
+        <!-- Main Chat Container -->
+        <div class="container">
+        <header>
+            <h1> BizJapan AI - Chat Test Interface</h1>
+            <div class="connection-status disconnected" id="connectionStatus">Disconnected</div>
+        </header>
+
+        <div class="content">
+            <!-- Start Session Section -->
+            <div class="section" id="startSection">
+                <div class="section-title"> Start or Resume Chat Session</div>
+                
+                <div class="error" id="errorDiv"></div>
+
+                <div class="form-group">
+                    <label for="apiKey">Socket API Key</label>
+                    <input
+                        type="password"
+                        id="apiKey"
+                        placeholder="Enter SOCKET_API_KEY"
+                        value="test"
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="caseId">Case ID (UUID)</label>
+                    <small style="display: block; color: #6b7280; margin-bottom: 5px;">
+                        If a chat session exists for this case, it will be resumed automatically.
+                    </small>
+                    <!-- <input
+                        type="text"
+                        id="caseId"
+                        placeholder="e.g., 019d7815-55ae-73db-aab5-3e4edc02a6ae"
+                        value="019d7815-55ae-73db-aab5-3e4edc02a6ae"
+                    > -->
+                    <input 
+                        type="text" 
+                        id="caseId" 
+                        placeholder="e.g., 019d7f9c-8a2a-7270-bef4-3175cc523e96"
+                        value="019d7f9c-8a2a-7270-bef4-3175cc523e96"
+                    >
+                </div>
+
+                <button onclick="startSession()" id="startBtn">Start/Resume Chat Session</button>
+                <button onclick="startGenerateSession()" id="startGenerateBtn" style="margin-top:8px; background:#0ea5e9;">Start Generate API (Auto Fallback)</button>
+                <button onclick="startKaigyouSession()" id="startKaigyouBtn" style="margin-top:8px; background:#7c3aed;">Start Kaigyou (創業計画書) Session</button>
+
+                <div id="generateOnlyMessage" class="generate-message"></div>
+            </div>
+
+            <!-- Session Info -->
+            <div class="session-info" id="sessionInfo">
+                <div class="session-info-item">
+                    <span class="session-info-label">Request ID:</span>
+                    <span id="threadIdDisplay"></span>
+                </div>
+                <div class="session-info-item">
+                    <span class="session-info-label">Session Type:</span>
+                    <span id="sessionTypeDisplay">Active</span>
+                </div>
+                <div class="session-info-item">
+                    <span class="session-info-label">Status:</span>
+                    <span id="statusDisplay">Active</span>
+                </div>
+            </div>
+
+            <!-- Progress Container -->
+            <div class="progress-container" id="progressContainer">
+                <div class="progress-label" id="progressLabel">Initializing...</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill">0%</div>
+                </div>
+            </div>
+
+            <!-- Notification -->
+            <div class="notification" id="notification"></div>
+
+            <!-- Chat Container -->
+            <div class="chat-container" id="chatContainer">
+                <div class="section-title"> Chat</div>
+
+                <div class="control-panel">
+                    <button class="cancel-btn" onclick="sendControlAction('cancel')" id="cancelBtn" disabled>Cancel Generation</button>
+                    <button class="continue-btn" onclick="sendControlAction('continue')" id="continueBtn" disabled>Continue Generation</button>
+                    <button class="restart-btn" onclick="sendControlAction('restart')" id="restartBtn" disabled>Restart Generation</button>
+                    <button class="regenerate-btn" onclick="sendControlAction('regenerate')" id="regenerateBtn" disabled>&#x21BA; Regenerate (from Completed)</button>
+                </div>
+                
+                <div class="chat-box" id="chatBox">
+                    <!-- Messages will appear here -->
+                </div>
+
+                <!-- Content Previews Container -->
+                <div class="content-previews-container hidden" id="contentPreviewsContainer">
+                    <div class="content-previews-title"> Generated Content Ready for Review</div>
+                    <div id="contentPreviews">
+                        <!-- Preview cards will appear here -->
+                    </div>
+                </div>
+
+                <!-- Pending file chip -->
+                <div id="pendingFileChip" class="pending-file-chip" style="display:none;">
+                    <span class="chip-icon">📎</span>
+                    <span class="chip-name" id="pendingFileName"></span>
+                    <span class="chip-status" id="pendingFileStatus">Uploading...</span>
+                    <button class="chip-remove" onclick="removePendingFile()" title="Remove file">✕</button>
+                </div>
+
+                <input type="file" id="fileInput" accept=".pdf,.docx,.xlsx,.pptx,.png,.jpg,.jpeg" multiple style="display:none;" onchange="handleFileSelect(event)">
+
+                <div class="input-group">
+                    <button class="attach-btn" onclick="document.getElementById('fileInput').click()" id="attachBtn" title="Attach document">📎</button>
+                    <button class="attach-btn" onclick="togglePushToTalk()" id="pttBtn" title="Push to Talk" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">🎤</button>
+                    <input
+                        type="text"
+                        id="messageInput"
+                        placeholder="Type your message..."
+                        onkeypress="handleKeyPress(event)"
+                    >
+                    <button onclick="console.log('Send button clicked'); sendMessage()" id="sendBtn">Send</button>
+                </div>
+
+                <!-- Recording indicator -->
+                <div id="recordingIndicator" style="display:none; background:#fee2e2; border:2px solid #fecaca; border-radius:8px; padding:12px; margin-top:10px; align-items:center; gap:10px;">
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <div style="width:12px; height:12px; background:#dc2626; border-radius:50%; animation: pulse 1.5s infinite;"></div>
+                        <span style="color:#991b1b; font-weight:600; font-size:14px;">Recording... <span id="recordingDuration">0:00</span></span>
+                    </div>
+                    <button onclick="stopRecording()" style="background:linear-gradient(135deg,#dc2626,#b91c1c); padding:6px 16px; font-size:13px; border-radius:6px; flex-shrink:0;">Stop & Send</button>
+                </div>
+
+                <!-- Fields Info -->
+                <div class="fields-info">
+                    <div class="field-card">
+                        <div class="field-card-title"> Fields Collected</div>
+                        <div id="fieldsCollected">None yet</div>
+                    </div>
+                    <div class="field-card">
+                        <div class="field-card-title"> Fields Remaining</div>
+                        <div id="fieldsRemaining">None</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    </div>
+
+    <script>
+        // Toggle between local dev and remote server
+        // const BASE_URL = 'https://ai.dev.biz-japan.com';
+        const BASE_URL = 'http://127.0.0.1:9090';
+
+        let socket;
+        let currentThreadId = null;
+        let currentCaseId = null;
+        let isKaigyouSession = false;
+        let sessionActive = false;
+        let threadAuthorized = false; // Track if client is authorized for current thread
+        let activeReviewContext = null; // Track which content is being reviewed
+        let finalReviewSectionsData = {}; // Stores {sectionName: markdownContent} for final review
+        let pendingFileIds = [];
+        let pendingFileUploading = false;
+
+        // Initialize Socket.IO connection
+        function initSocket() {
+            // Prevent creating multiple socket instances
+            if (socket && socket.connected) {
+                console.log('Socket already connected');
+                return;
+            }
+
+            const apiKey = document.getElementById('apiKey').value.trim();
+            socket = io(`${BASE_URL}`, {
+                transports: ['websocket', 'polling'],
+                auth: { 'x-api-key': apiKey }
+            });
+
+            socket.on('connect', () => {
+                console.log('Connected to server');
+                updateConnectionStatus(true);
+            });
+
+            socket.on('disconnect', () => {
+                console.log('Disconnected from server');
+                threadAuthorized = false;
+                updateConnectionStatus(false);
+            });
+
+            // Auto-rejoin thread on reconnection (with delay to ensure listeners are attached)
+            socket.on('reconnect', () => {
+                console.log('Reconnected to server, preparing to rejoin thread');
+                threadAuthorized = false;
+                if (currentThreadId) {
+                    // Register listener for this reconnect cycle
+                    const handleThreadJoined = (data) => {
+                        console.log('Thread join confirmed on reconnect:', data);
+                        threadAuthorized = true;
+                        socket.off('thread_joined', handleThreadJoined);
+                    };
+                    socket.once('thread_joined', handleThreadJoined);
+                    
+                    // Emit join_thread after brief delay
+                    setTimeout(() => {
+                        console.log('Auto-joining thread after reconnect:', currentThreadId);
+                        socket.emit('join_thread', { request_id: currentThreadId });
+                        
+                        // Fallback: if thread_joined not received in 2 seconds, assume authorized
+                        setTimeout(() => {
+                            if (!threadAuthorized) {
+                                console.warn('Authorization timeout, assuming authorized');
+                                threadAuthorized = true;
+                                socket.off('thread_joined', handleThreadJoined);
+                            }
+                        }, 2000);
+                    }, 50);
+                }
+            });
+
+            // Listen for workflow resumed event (when joining existing session)
+            socket.on('workflow_resumed', (data) => {
+                console.log('Workflow resumed:', data);
+                
+                // Add resume message to chat
+                addMessage('system', data.message);
+                
+                // Update status display based on current state
+                const statusDisplay = document.getElementById('statusDisplay');
+                if (data.status === 'generating') {
+                    statusDisplay.textContent = '⚙️ Generating';
+                    statusDisplay.style.color = '#0ea5e9';
+                } else if (data.status === 'collecting_info') {
+                    statusDisplay.textContent = ' Collecting Info';
+                    statusDisplay.style.color = '#10b981';
+                } else if (data.status === 'completed') {
+                    statusDisplay.textContent = ' Completed';
+                    statusDisplay.style.color = '#059669';
+                } else {
+                    statusDisplay.textContent = ' Active';
+                    statusDisplay.style.color = '#166534';
+                }
+                
+                // Update progress if in generating state
+                if (data.status === 'generating' && data.progress) {
+                    updateProgress(undefined, undefined, data.progress_label, data.progress);
+                }
+                
+                // If there's review context with content, show it
+                if (data.review_context && data.review_context.markdown_content) {
+                    if (data.review_context.is_final_review) {
+                        const sections = data.review_context.sections || {};
+                        finalReviewSectionsData = sections;
+                        addFinalReviewCard(
+                            data.review_context.node_name,
+                            data.review_context.section_title,
+                            data.review_context.markdown_content,
+                            new Date().toISOString(),
+                            sections
+                        );
+                    } else {
+                        addContentPreviewCard(
+                            data.review_context.node_name,
+                            data.review_context.section_title,
+                            data.review_context.markdown_content,
+                            new Date().toISOString()
+                        );
+                    }
+                }
+                
+                // Manage input state
+                document.getElementById('messageInput').disabled = !data.needs_response;
+                document.getElementById('sendBtn').disabled = !data.needs_response;
+            });
+
+            // Listen for chat responses
+            socket.on('chat_response', (data) => {
+                console.log('Chat response:', data);
+                addMessage('assistant', data.message);
+                
+                if (data.fields_collected) {
+                    updateFieldsCollected(data.fields_collected);
+                }
+                
+                if (data.fields_remaining) {
+                    updateFieldsRemaining(data.fields_remaining);
+                }
+
+                // Manage input state based on stage
+                if (data.stage === 'generating') {
+                    document.getElementById('messageInput').disabled = true;
+                    document.getElementById('sendBtn').disabled = true;
+                    showNotification('Document generation started! Progress updates will appear below.');
+                } else {
+                    // Re-enable input for other stages (collecting info, reviewing, etc.)
+                    document.getElementById('messageInput').disabled = false;
+                    document.getElementById('sendBtn').disabled = false;
+                }
+            });
+
+            // Listen for progress updates
+            socket.on('progress_update', (data) => {
+                console.log('Progress update:', data);
+                // Use done/total if available, otherwise fall back to progress_status string
+                updateProgress(data.done, data.total, data.progress_label, data.progress_status);
+            });
+
+            // Listen for generation complete
+            socket.on('generation_complete', (data) => {
+                console.log('Generation complete:', data);
+                updateProgress(undefined, undefined, 'Document generation complete!', 'Complete');
+                addMessage('system', ` Document generated successfully! URLs: ${JSON.stringify(data.urls)}`);
+                showNotification('Generation complete! Check the system message for document URLs.');
+            });
+
+            // Listen for errors
+            socket.on('error', (data) => {
+                console.error('Error:', data);
+                showError(data.message || 'An error occurred');
+                // Re-enable input so user can retry
+                document.getElementById('messageInput').disabled = false;
+                document.getElementById('sendBtn').disabled = false;
+            });
+
+            // Re-enable input when server signals it (e.g. after socket-level errors)
+            socket.on('chat_input_enabled', () => {
+                document.getElementById('messageInput').disabled = false;
+                document.getElementById('sendBtn').disabled = false;
+            });
+
+            // Listen for market research ready notification
+            
+
+            // Listen for content ready for review (new interrupts)
+            socket.on('content_ready_for_review', (data) => {
+                console.log('Content ready for review:', data);
+
+                if (data.is_final_review) {
+                    // Store sections data for section selector
+                    finalReviewSectionsData = data.sections || {};
+                    const combinedMarkdown = buildCombinedMarkdownFromSections(finalReviewSectionsData);
+                    // Remove old final review card if present (to replace with updated one)
+                    removeContentPreviewCard('node_emit_final_review');
+                    // Add a special final-review card
+                    addFinalReviewCard(
+                        data.node_name,
+                        data.section_title,
+                        combinedMarkdown,
+                        data.timestamp,
+                        data.sections
+                    );
+                } else {
+                    addContentPreviewCard(
+                        data.node_name,
+                        data.section_title,
+                        data.markdown_content,
+                        data.timestamp
+                    );
+                }
+
+                // Re-enable input when content is ready for review
+                document.getElementById('messageInput').disabled = false;
+                document.getElementById('sendBtn').disabled = false;
+                document.getElementById('progressContainer').classList.remove('active');
+            });
+
+            // final_review_ready is no longer emitted; kept as no-op for backwards compat
+            socket.on('final_review_ready', (data) => {
+                console.log('final_review_ready received (legacy, ignored):', data);
+            });
+
+            // Track when thread join is confirmed
+            socket.on('thread_joined', (data) => {
+                console.log('Thread join confirmed:', data);
+                threadAuthorized = true;
+            });
+
+        }
+
+        function updateConnectionStatus(connected) {
+            const statusEl = document.getElementById('connectionStatus');
+            if (connected) {
+                statusEl.textContent = 'Connected';
+                statusEl.className = 'connection-status connected';
+            } else {
+                statusEl.textContent = 'Disconnected';
+                statusEl.className = 'connection-status disconnected';
+            }
+        }
+
+        async function startSession(options = {}) {
+            const {
+                autoApprove = null,
+                isManual = null,
+                startButtonId = 'startBtn'
+            } = options;
+            const caseId = document.getElementById('caseId').value.trim();
+            const apiKey = document.getElementById('apiKey').value.trim();
+            const startButton = document.getElementById(startButtonId) || document.getElementById('startBtn');
+
+            if (!apiKey) {
+                showError('Please enter the Socket API Key');
+                return;
+            }
+
+            if (!caseId) {
+                showError('Please enter a Case ID');
+                return;
+            }
+
+            try {
+                startButton.disabled = true;
+                hideError();
+                const generateOnlyMessage = document.getElementById('generateOnlyMessage');
+                generateOnlyMessage.style.display = 'none';
+                generateOnlyMessage.textContent = '';
+
+                // (Re-)initialise socket with the provided API key
+                if (socket) socket.disconnect();
+                initSocket();
+
+                const requestBody = {
+                    case_id: caseId
+                };
+                if (autoApprove !== null) {
+                    requestBody.auto_approve = autoApprove;
+                }
+                if (isManual !== null) {
+                    requestBody.is_manual = isManual;
+                }
+
+                // Call the chat API - it will check for existing history and return it
+                const response = await fetch(`${BASE_URL}/api/chat/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Shared-Key': 'test'
+                    },
+                    body: JSON.stringify(requestBody)
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.message || 'Failed to start session');
+                }
+
+                const data = await response.json();
+                console.log('Chat session response:', data);
+
+                currentThreadId = data.request_id;
+                currentCaseId = caseId;
+                isKaigyouSession = false;
+                sessionActive = true;
+                updateControlButtons(true);
+
+                // Join the thread room for real-time updates (with small delay to ensure listeners are ready)
+                setTimeout(() => {
+                    socket.emit('join_thread', { request_id: currentThreadId });
+                }, 50);
+
+                // Clear chat box
+                const chatBox = document.getElementById('chatBox');
+                chatBox.innerHTML = '';
+
+                // Check if this is resuming an existing session with history
+                if (data.is_resuming && data.messages && data.messages.length > 0) {
+                    console.log(`Resuming session with ${data.messages.length} messages`);
+                    
+                    // Display all previous messages with attachment previews
+                    data.messages.forEach(msg => {
+                        addMessage(msg.role, msg.content, msg.attachments || null);
+                    });
+                    
+                    showNotification(' Resumed existing chat session');
+                    document.getElementById('sessionTypeDisplay').textContent = ' Resumed';
+                } else {
+                    console.log('Started new chat session');
+                    
+                    // Add initial welcome message
+                    addMessage('assistant', data.message);
+                    
+                    document.getElementById('sessionTypeDisplay').textContent = ' New';
+                }
+
+                // Check if there's content waiting for review
+                if (data.review_context && (data.review_context.markdown_content || data.review_context.sections)) {
+                    console.log('Content waiting for review:', data.review_context);
+                    
+                    // Add assistant message indicating review is needed
+                    // if (data.is_resuming) {
+                    //     addMessage('assistant', data.message);
+                    // }
+                    
+                    // Display the correct card type based on whether it's a final review
+                    if (data.review_context.is_final_review) {
+                        // Build combined markdown from sections dict for display
+                        const sections = data.review_context.sections || {};
+                        finalReviewSectionsData = sections;
+                        const combinedMarkdown = buildCombinedMarkdownFromSections(sections);
+                        addFinalReviewCard(
+                            data.review_context.node_name,
+                            data.review_context.section_title,
+                            combinedMarkdown,
+                            new Date().toISOString(),
+                            sections
+                        );
+                    } else {
+                        addContentPreviewCard(
+                            data.review_context.node_name,
+                            data.review_context.section_title,
+                            data.review_context.markdown_content,
+                            new Date().toISOString()
+                        );
+                    }
+                    
+                    // Don't set activeReviewContext here - only when user clicks to view
+                    // This prevents messages from being treated as review feedback
+                    // when the user hasn't actually opened the content to review
+                    
+                    // Update stage to awaiting validation
+                    data.stage = 'awaiting_validation';
+                }
+
+                // Display progress if available
+                if (data.progress && data.progress_label) {
+                    updateProgress(null, null, data.progress_label, data.progress);
+                }
+
+                // Update UI
+                document.getElementById('threadIdDisplay').textContent = currentThreadId;
+                document.getElementById('sessionInfo').classList.add('active');
+                document.getElementById('chatContainer').classList.add('active');
+                document.getElementById('startSection').style.display = 'none';
+
+                // Enable input for chat
+                document.getElementById('messageInput').disabled = false;
+                document.getElementById('sendBtn').disabled = !data.needs_response;
+
+                if (autoApprove === true && isManual === false) {
+                    showNotification('Started chat in fallback mode (is_manual=false, auto_approve=true).');
+                }
+
+            } catch (error) {
+                console.error('Error starting session:', error);
+                showError(error.message);
+                startButton.disabled = false;
+                updateControlButtons(false);
+            }
+        }
+
+        async function startGenerateSession() {
+            const caseId = document.getElementById('caseId').value.trim();
+            const apiKey = document.getElementById('apiKey').value.trim();
+
+            if (!apiKey) {
+                showError('Please enter the Socket API Key');
+                return;
+            }
+
+            if (!caseId) {
+                showError('Please enter a Case ID');
+                return;
+            }
+
+            try {
+                document.getElementById('startGenerateBtn').disabled = true;
+                hideError();
+                const generateOnlyMessage = document.getElementById('generateOnlyMessage');
+                generateOnlyMessage.style.display = 'none';
+                generateOnlyMessage.textContent = '';
+
+                if (socket) socket.disconnect();
+                initSocket();
+
+                const response = await fetch(`${BASE_URL}/api/generate/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Shared-Key': 'test'
+                    },
+                    body: JSON.stringify({
+                        case_id: caseId
+                    })
+                });
+
+                if (response.status === 422) {
+                    const errorData = await response.json().catch(() => ({}));
+                    const detail = errorData && errorData.detail ? errorData.detail : {};
+                    const missingFields = Array.isArray(detail.missing_fields)
+                        ? detail.missing_fields
+                        : [];
+
+                    if (missingFields.length > 0) {
+                        showNotification(`Generate returned 422. Missing fields: ${missingFields.join(', ')}. Starting chat fallback...`);
+                    } else {
+                        showNotification('Generate returned 422 due to missing required fields. Starting chat fallback...');
+                    }
+
+                    await startSession({
+                        autoApprove: true,
+                        isManual: false,
+                        startButtonId: 'startGenerateBtn'
+                    });
+                    return;
+                }
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.detail || errorData.message || 'Failed to start generation');
+                }
+
+                const data = await response.json();
+                console.log('Generate API response:', data);
+
+                currentThreadId = data.request_id;
+                currentCaseId = caseId;
+                isKaigyouSession = false;
+                sessionActive = true;
+                threadAuthorized = false;
+                updateControlButtons(true);
+
+                setTimeout(() => {
+                    socket.emit('join_thread', { request_id: currentThreadId });
+                }, 50);
+
+                // Keep generate success in message-only mode (no chat box UI).
+                document.getElementById('chatContainer').classList.remove('active');
+                document.getElementById('sessionInfo').classList.remove('active');
+                document.getElementById('startSection').style.display = 'block';
+
+                generateOnlyMessage.textContent = `Generation started via /api/generate. Request ID: ${currentThreadId}. Progress updates will appear below.`;
+                generateOnlyMessage.style.display = 'block';
+
+                showNotification('Generation started from /api/generate endpoint.');
+
+            } catch (error) {
+                console.error('Error starting generate session:', error);
+                showError(error.message);
+                document.getElementById('startGenerateBtn').disabled = false;
+                updateControlButtons(false);
+            }
+        }
+
+        async function startKaigyouSession() {
+            try {
+                document.getElementById('startKaigyouBtn').disabled = true;
+                hideError();
+                const generateOnlyMessage = document.getElementById('generateOnlyMessage');
+                generateOnlyMessage.style.display = 'none';
+                generateOnlyMessage.textContent = '';
+
+                if (socket) socket.disconnect();
+                initSocket();
+
+                const response = await fetch(`${BASE_URL}/api/chat/kaigyou/start`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Shared-Key': document.getElementById('apiKey').value.trim() || 'test'
+                    },
+                    body: JSON.stringify({})
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.message || 'Failed to start kaigyou session');
+                }
+
+                const data = await response.json();
+                console.log('Kaigyou session response:', data);
+
+                currentThreadId = data.request_id;
+                currentCaseId = null;  // no case_id for kaigyou
+                isKaigyouSession = true;
+                sessionActive = true;
+                updateControlButtons(true);
+
+                socket.emit('join_thread', { request_id: currentThreadId });
+
+                const chatBox = document.getElementById('chatBox');
+                chatBox.innerHTML = '';
+
+                if (data.message) {
+                    addMessage('assistant', data.message);
+                }
+
+                document.getElementById('threadIdDisplay').textContent = currentThreadId;
+                document.getElementById('sessionInfo').classList.add('active');
+                document.getElementById('chatContainer').classList.add('active');
+                document.getElementById('startSection').style.display = 'none';
+                document.getElementById('sendBtn').disabled = !data.needs_response;
+
+            } catch (error) {
+                console.error('Error starting kaigyou session:', error);
+                showError(error.message);
+                document.getElementById('startKaigyouBtn').disabled = false;
+                updateControlButtons(false);
+            }
+        }
+
+        async function sendControlAction(action) {
+            if (!sessionActive || !currentCaseId) {
+                showError('Please start a chat session first');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${BASE_URL}/api/chat/control/${currentCaseId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Shared-Key': 'test'
+                    },
+                    body: JSON.stringify({
+                        action: action
+                    })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.detail || errorData.message || 'Failed to execute control action');
+                }
+
+                const data = await response.json();
+                addMessage('system', `⚙️ ${data.message}`);
+
+                // Handle regenerate: switch to new request_id session
+                if (action === 'regenerate' && data.request_id) {
+                    const newRequestId = data.request_id;
+                    console.log('Regenerate: switching to new session', newRequestId);
+
+                    // Leave the old thread room and join the new one
+                    if (socket && socket.connected) {
+                        socket.emit('leave_thread', { request_id: currentThreadId });
+                    }
+
+                    currentThreadId = newRequestId;
+                    threadAuthorized = false;
+
+                    // Join new thread room
+                    setTimeout(() => {
+                        if (socket && socket.connected) {
+                            socket.emit('join_thread', { request_id: newRequestId });
+                        }
+                    }, 50);
+
+                    // Reset UI for new session
+                    document.getElementById('threadIdDisplay').textContent = newRequestId;
+                    document.getElementById('statusDisplay').textContent = '📋 Collecting Info';
+                    document.getElementById('sessionTypeDisplay').textContent = '🔄 Regenerating';
+
+                    // Clear chat box and content previews
+                    document.getElementById('chatBox').innerHTML = '';
+                    document.getElementById('contentPreviews').innerHTML = '';
+                    document.getElementById('contentPreviewsContainer').classList.add('hidden');
+                    finalReviewSectionsData = {};
+                    activeReviewContext = null;
+                    closeMarkdownPanel();
+
+                    // Hide progress
+                    document.getElementById('progressContainer').classList.remove('active');
+
+                    // Now fetch the new session's start state to get the initial message
+                    try {
+                        const startResp = await fetch(`${BASE_URL}/api/chat/`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-Shared-Key': 'test',
+                            },
+                            body: JSON.stringify({ case_id: currentCaseId }),
+                        });
+                        if (startResp.ok) {
+                            const startData = await startResp.json();
+                            // Display messages from the new regenerate session
+                            if (startData.messages && startData.messages.length > 0) {
+                                startData.messages.forEach(msg => addMessage(msg.role, msg.content, msg.attachments || null));
+                            } else if (startData.message) {
+                                addMessage('assistant', startData.message);
+                            }
+                            document.getElementById('messageInput').disabled = false;
+                            document.getElementById('sendBtn').disabled = !startData.needs_response;
+                            if (startData.fields_collected) updateFieldsCollected(startData.fields_collected);
+                            if (startData.fields_remaining) updateFieldsRemaining(startData.fields_remaining);
+                        }
+                    } catch (startErr) {
+                        console.error('Error fetching regenerate session start:', startErr);
+                    }
+
+                    showNotification('🔄 Regeneration session started with previous inputs. Review and confirm to regenerate.');
+                }
+            } catch (error) {
+                console.error('Error sending control action:', error);
+                showError(error.message);
+            }
+        }
+
+        function updateControlButtons(enabled) {
+            document.getElementById('cancelBtn').disabled = !enabled;
+            document.getElementById('continueBtn').disabled = !enabled;
+            document.getElementById('restartBtn').disabled = !enabled;
+            document.getElementById('regenerateBtn').disabled = !enabled;
+        }
+
+        async function sendMessage() {
+            const messageInput = document.getElementById('messageInput');
+            const sendBtn = document.getElementById('sendBtn');
+            const message = messageInput.value.trim();
+
+            console.log('sendMessage called:', {
+                message: message,
+                sessionActive: sessionActive,
+                currentThreadId: currentThreadId,
+                btnDisabled: sendBtn.disabled
+            });
+
+            if (!message && !pendingFileIds.length) {
+                console.warn('Empty message and no file, not sending');
+                return;
+            }
+
+            if (pendingFileUploading) {
+                showError('Please wait for the file to finish uploading.');
+                return;
+            }
+
+            if (!sessionActive || !currentThreadId) {
+                console.warn('Session not active or no thread ID');
+                showError('Please start a chat session first');
+                return;
+            }
+
+            sendBtn.disabled = true;
+            messageInput.disabled = true;
+            if (message) addMessage('user', message);
+            messageInput.value = '';
+
+            // Build request data
+            const requestData = {
+                request_id: currentThreadId,
+                message: message
+            };
+
+            // Include review context if active
+            if (activeReviewContext) {
+                if (activeReviewContext.isFinalReview) {
+                    // For final review: send section key as node_name, plus final review flags
+                    const sectionKey = activeReviewContext.selectedSection || null;
+                    requestData.review_context = {
+                        node_name: sectionKey || 'node_emit_final_review',
+                        section_title: activeReviewContext.sectionTitle,
+                        is_final_review: true,
+                        selected_section: sectionKey,
+                    };
+                } else {
+                    requestData.review_context = {
+                        node_name: activeReviewContext.nodeName,
+                        section_title: activeReviewContext.sectionTitle
+                    };
+                }
+
+                console.log('Sending message with review context:', requestData.review_context);
+                removeContentPreviewCard(activeReviewContext.nodeName || 'node_emit_final_review');
+                closeMarkdownPanel();
+                activeReviewContext = null;
+            }
+
+            // Attach pending files if any (always sent as array)
+            if (pendingFileIds.length) {
+                requestData.file_id = [...pendingFileIds];
+                clearPendingFile();
+            }
+
+            // Check if authorized, with retry logic
+            if (!threadAuthorized) {
+                console.warn('Not yet authorized for thread, attempting to rejoin...');
+                
+                // If we have a thread ID but not authorized, try to rejoin
+                if (currentThreadId) {
+                    socket.emit('join_thread', { request_id: currentThreadId });
+                    
+                    // Wait a bit and retry sending
+                    setTimeout(() => {
+                        if (threadAuthorized) {
+                            console.log('Authorization successful, sending message now');
+                            socket.emit('send_message', requestData);
+                        } else {
+                            console.warn('Still not authorized after retry');
+                            showError('Connection issue. Please wait a moment and try again.');
+                        }
+                    }, 500);
+                } else {
+                    showError('No thread context. Please start a new session.');
+                }
+                return;
+            }
+
+            // Send via Socket.IO – response arrives through socket events
+            socket.emit('send_message', requestData);
+        }
+
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        }
+
+        function normalizeAttachment(att) {
+            // New backend shape requested by frontend
+            if (att && att.file_name !== undefined) {
+                return {
+                    file_name: att.file_name || 'File',
+                    file_size: Number(att.file_size || 0),
+                    file_type: att.file_type || (att.is_image ? 'image' : 'document'),
+                    file_url: att.file_url || '',
+                    id: att.id || '',
+                    is_image: Boolean(att.is_image),
+                    mime_type: att.mime_type || '',
+                    size_label: att.size_label || '',
+                };
+            }
+
+            // Backward compatibility for older stored message format
+            const mimeType = (att && att.type) || '';
+            const isImage = mimeType.startsWith('image/');
+            return {
+                file_name: (att && att.name) || 'File',
+                file_size: 0,
+                file_type: isImage ? 'image' : 'document',
+                file_url: (att && att.url) || '',
+                id: '',
+                is_image: isImage,
+                mime_type: mimeType,
+                size_label: '',
+            };
+        }
+
+        function addMessage(role, content, attachments) {
+            const chatBox = document.getElementById('chatBox');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${role}`;
+
+            const time = new Date().toLocaleTimeString();
+
+            let attachmentsHtml = '';
+            if (attachments && attachments.length > 0) {
+                const chips = attachments.map(raw => {
+                    const att = normalizeAttachment(raw);
+                    const icon = getFileIcon(att.mime_type);
+                    const name = att.file_name || 'File';
+                    const sizeLabel = att.size_label ? ` (${att.size_label})` : '';
+                    const chipLabel = `${icon} ${name}${sizeLabel}`;
+                    if (att.file_url) {
+                        return `<a class="msg-file-chip" href="${att.file_url}" target="_blank" rel="noopener noreferrer" title="${name}">${chipLabel}</a>`;
+                    } else {
+                        return `<span class="msg-file-chip" title="${name}">${chipLabel}</span>`;
+                    }
+                }).join('');
+                attachmentsHtml = `<div class="message-attachments">${chips}</div>`;
+            }
+
+            messageDiv.innerHTML = `
+                <div>${content}</div>
+                ${attachmentsHtml}
+                <div class="message-time">${time}</div>
+            `;
+
+            chatBox.appendChild(messageDiv);
+            chatBox.scrollTop = chatBox.scrollHeight;
+
+            // Add TTS button for assistant messages
+            if (role === 'assistant' && content) {
+                addTtsButtonToMessage(messageDiv, content);
+                // Store message text for auto-play
+                lastAssistantMessageText = content;
+                // Trigger auto-play after a short delay to allow TTS button to be added
+                setTimeout(() => {
+                    playLastAssistantMessageAudio();
+                }, 500);
+            }
+        }
+
+        function getFileIcon(contentType) {
+            if (!contentType) return '📎';
+            if (contentType === 'application/pdf') return '📄';
+            if (contentType.includes('word')) return '📝';
+            if (contentType.includes('sheet') || contentType.includes('excel')) return '📊';
+            if (contentType.includes('presentation') || contentType.includes('powerpoint')) return '📑';
+            if (contentType.startsWith('image/')) return '🖼️';
+            if (contentType === 'text/plain') return '📃';
+            return '📎';
+        }
+
+        function updateProgress(done, total, label, progressStatusString = null) {
+            const progressContainer = document.getElementById('progressContainer');
+            const progressFill = document.getElementById('progressFill');
+            const progressLabel = document.getElementById('progressLabel');
+
+            progressContainer.classList.add('active');
+            
+            // Calculate percentage for progress bar width and display
+            let widthPercent = 0;
+            let displayStatus = '';
+            
+            if (done !== undefined && total !== undefined && total > 0) {
+                // Use done/total if available to calculate percentage
+                widthPercent = Math.round((done / total) * 100);
+                displayStatus = `${widthPercent}%`;
+            } else if (progressStatusString) {
+                // Fallback to parsing string format
+                if (progressStatusString === 'Complete') {
+                    widthPercent = 100;
+                    displayStatus = '100%';
+                } else if (progressStatusString.includes('%')) {
+                    // Parse percentage string "50%"
+                    widthPercent = parseInt(progressStatusString);
+                    displayStatus = progressStatusString;
+                } else if (progressStatusString.includes('/')) {
+                    // Parse fraction format "5/10" and convert to percentage
+                    const [current, totalSteps] = progressStatusString.split('/').map(Number);
+                    widthPercent = Math.round((current / totalSteps) * 100);
+                    displayStatus = `${widthPercent}%`;
+                }
+            }
+            
+            progressFill.style.width = `${widthPercent}%`;
+            progressFill.textContent = displayStatus || '0%';
+            progressLabel.textContent = label || 'Processing...';
+        }
+
+        function updateFieldsCollected(fields) {
+            const container = document.getElementById('fieldsCollected');
+            if (Object.keys(fields).length === 0) {
+                container.innerHTML = '<div class="field-item">None yet</div>';
+            } else {
+                container.innerHTML = Object.entries(fields)
+                    .map(([key, value]) => `<div class="field-item">• ${key}</div>`)
+                    .join('');
+            }
+        }
+
+        function updateFieldsRemaining(fields) {
+            const container = document.getElementById('fieldsRemaining');
+            if (fields.length === 0) {
+                container.innerHTML = '<div class="field-item">None</div>';
+            } else {
+                container.innerHTML = fields
+                    .map(field => `<div class="field-item">• ${field}</div>`)
+                    .join('');
+            }
+        }
+
+        function showError(message) {
+            const errorDiv = document.getElementById('errorDiv');
+            errorDiv.textContent = message;
+            errorDiv.classList.add('active');
+        }
+
+        function hideError() {
+            document.getElementById('errorDiv').classList.remove('active');
+        }
+
+        function renderMarkdown(markdownText) {
+            const markdownPanel = document.getElementById('markdownPanel');
+            const markdownContent = document.getElementById('markdownContent');
+            
+            // Configure marked options for better rendering
+            marked.setOptions({
+                breaks: true,
+                gfm: true,
+                headerIds: true,
+                mangle: false
+            });
+            
+            // Parse and render markdown
+            const htmlContent = marked.parse(markdownText);
+            markdownContent.innerHTML = htmlContent;
+            
+            // Show the panel
+            markdownPanel.classList.add('active');
+            
+            // Scroll to top
+            markdownContent.scrollTop = 0;
+            
+            console.log('Markdown rendered successfully');
+        }
+
+        function buildCombinedMarkdownFromSections(sections) {
+            if (!sections || Object.keys(sections).length === 0) {
+                return 'No content available.';
+            }
+
+            const parts = [];
+            Object.keys(sections).forEach(function(key) {
+                const title = key.replace(/_/g, ' ').replace(/\b\w/g, function(c) { return c.toUpperCase(); });
+                const content = sections[key] || '';
+                parts.push( content.trim());
+            });
+
+            return parts.join('\n\n---\n\n');
+        }
+
+        function closeMarkdownPanel() {
+            const markdownPanel = document.getElementById('markdownPanel');
+            markdownPanel.classList.remove('active');
+            document.getElementById('finalReviewBar').style.display = 'none';
+            document.getElementById('messageInput').placeholder = 'Type your message...';
+            
+            // Clear active review context when closing panel
+            activeReviewContext = null;
+            
+            // Remove active-review highlight from all cards
+            document.querySelectorAll('.content-preview-card').forEach(c => {
+                c.classList.remove('active-review');
+            });
+        }
+
+        function hideError() {
+            document.getElementById('errorDiv').classList.remove('active');
+        }
+
+        function showNotification(message) {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.classList.add('active');
+            
+            setTimeout(() => {
+                notification.classList.remove('active');
+            }, 5000);
+        }
+
+        function addContentPreviewCard(nodeName, sectionTitle, markdownContent, timestamp) {
+            const container = document.getElementById('contentPreviewsContainer');
+            const previews = document.getElementById('contentPreviews');
+            
+            // Show the container if hidden
+            container.classList.remove('hidden');
+            
+            // Create preview card
+            const card = document.createElement('div');
+            card.className = 'content-preview-card';
+            card.setAttribute('data-node-name', nodeName);
+            card.setAttribute('data-markdown', markdownContent);
+            
+            const header = document.createElement('div');
+            header.className = 'content-preview-header';
+            
+            const title = document.createElement('div');
+            title.className = 'content-preview-title';
+            title.textContent = sectionTitle;
+            
+            const badge = document.createElement('div');
+            badge.className = 'content-preview-badge';
+            badge.textContent = 'NEW';
+            
+            header.appendChild(title);
+            header.appendChild(badge);
+            
+            const subtitle = document.createElement('div');
+            subtitle.className = 'content-preview-subtitle';
+            const timeStr = timestamp ? new Date(timestamp).toLocaleTimeString() : 'Just now';
+            subtitle.textContent = `Generated at ${timeStr}`;
+            
+            const action = document.createElement('div');
+            action.className = 'content-preview-action';
+            action.textContent = '👁️ Click to view details';
+            
+            card.appendChild(header);
+            card.appendChild(subtitle);
+            card.appendChild(action);
+            
+            // Add click handler to show in markdown panel
+            card.addEventListener('click', () => {
+                showContentInPanel(sectionTitle, markdownContent, nodeName);
+                // Highlight the active card
+                document.querySelectorAll('.content-preview-card').forEach(c => {
+                    c.classList.remove('active-review');
+                });
+                card.classList.add('active-review');
+            });
+            
+            // Add to previews container (add to top)
+            previews.insertBefore(card, previews.firstChild);
+            
+            // Add system message to chat
+            addMessage('system', ` Generated content for "${sectionTitle}" is ready for review. Click the card below to view.`);
+        }
+
+        function showContentInPanel(title, markdownContent, nodeName) {
+            const markdownPanel = document.getElementById('markdownPanel');
+            const markdownPanelHeader = markdownPanel.querySelector('.markdown-header h2');
+            const markdownContentDiv = document.getElementById('markdownContent');
+            const finalReviewBar = document.getElementById('finalReviewBar');
+            
+            // Set active review context
+            activeReviewContext = {
+                nodeName: nodeName,
+                sectionTitle: title
+            };
+            console.log('Active review context set:', activeReviewContext);
+            
+            // Update panel title
+            markdownPanelHeader.textContent = ` ${title}`;
+            
+            // Configure marked options
+            marked.setOptions({
+                breaks: true,
+                gfm: true,
+                headerIds: true,
+                mangle: false
+            });
+            
+            // Parse and render markdown
+            const htmlContent = marked.parse(markdownContent);
+            markdownContentDiv.innerHTML = htmlContent;
+            
+            // Show the panel
+            markdownPanel.classList.add('active');
+            
+            // Scroll to top
+            markdownContentDiv.scrollTop = 0;
+
+            // Hide final review bar (not a final review)
+            finalReviewBar.style.display = 'none';
+            
+            // Show instruction message
+            addMessage('system', ` Reviewing "${title}". Send a message to approve (e.g., "looks good") or request changes.`);
+        }
+
+        function showFinalReviewInPanel(nodeName, markdownContent, sections) {
+            const markdownPanel = document.getElementById('markdownPanel');
+            const markdownPanelHeader = markdownPanel.querySelector('.markdown-header h2');
+            const markdownContentDiv = document.getElementById('markdownContent');
+            const finalReviewBar = document.getElementById('finalReviewBar');
+            const sectionSelect = document.getElementById('finalReviewSectionSelect');
+
+            // Set active review context for final review
+            activeReviewContext = {
+                nodeName: nodeName,
+                sectionTitle: 'Final Document Review',
+                isFinalReview: true,
+                selectedSection: null,
+            };
+
+            markdownPanelHeader.textContent = ' Final Document Review';
+
+            // Populate section selector
+            sectionSelect.innerHTML = '<option value="">— choose a section to edit —</option>';
+            Object.keys(sections).forEach(function(key) {
+                const opt = document.createElement('option');
+                opt.value = key;
+                opt.textContent = key.replace(/_/g, ' ').replace(/\b\w/g, function(c) { return c.toUpperCase(); });
+                sectionSelect.appendChild(opt);
+            });
+
+            // Show the section selector bar
+            finalReviewBar.style.display = 'flex';
+
+            // Render combined markdown built from sections
+            const combinedMarkdown = buildCombinedMarkdownFromSections(sections || {});
+            marked.setOptions({ breaks: true, gfm: true, headerIds: true, mangle: false });
+            markdownContentDiv.innerHTML = marked.parse(combinedMarkdown);
+
+            markdownPanel.classList.add('active');
+            markdownContentDiv.scrollTop = 0;
+
+            addMessage('system', ' Final review ready! Select a section from the dropdown to provide feedback, or click "Approve &amp; Write" to finalize.');
+        }
+
+        function onFinalReviewSectionChange() {
+            const sectionSelect = document.getElementById('finalReviewSectionSelect');
+            const selectedSection = sectionSelect.value;
+            if (activeReviewContext && activeReviewContext.isFinalReview) {
+                activeReviewContext.selectedSection = selectedSection || null;
+                if (selectedSection) {
+                    const title = selectedSection.replace(/_/g, ' ').replace(/\b\w/g, function(c) { return c.toUpperCase(); });
+                    // Scroll to that section heading in the panel
+                    const markdownContentDiv = document.getElementById('markdownContent');
+                    const headings = markdownContentDiv.querySelectorAll('h1, h2');
+                    for (let h of headings) {
+                        if (h.textContent.trim().toLowerCase() === title.toLowerCase()) {
+                            h.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                            break;
+                        }
+                    }
+                    document.getElementById('messageInput').placeholder = `Type feedback for "${title}"...`;
+                } else {
+                    document.getElementById('messageInput').placeholder = 'Select a section first, then type feedback...';
+                }
+            }
+        }
+
+        function removeContentPreviewCard(nodeName) {
+            const card = document.querySelector(`[data-node-name="${nodeName}"]`);
+            if (card) {
+                card.style.animation = 'fadeOut 0.3s';
+                setTimeout(() => {
+                    card.remove();
+                    // Hide container if no more cards
+                    const previews = document.getElementById('contentPreviews');
+                    if (previews.children.length === 0) {
+                        document.getElementById('contentPreviewsContainer').classList.add('hidden');
+                    }
+                }, 300);
+            }
+        }
+
+        // ─── Final Review ───────────────────────────────────────────────────────────
+
+        function addFinalReviewCard(nodeName, sectionTitle, markdownContent, timestamp, sections) {
+            const container = document.getElementById('contentPreviewsContainer');
+            const previews = document.getElementById('contentPreviews');
+
+            container.classList.remove('hidden');
+
+            const card = document.createElement('div');
+            card.className = 'content-preview-card';
+            card.setAttribute('data-node-name', nodeName);
+            card.setAttribute('data-markdown', markdownContent);
+            card.style.borderColor = '#7c3aed';
+
+            const header = document.createElement('div');
+            header.className = 'content-preview-header';
+
+            const title = document.createElement('div');
+            title.className = 'content-preview-title';
+            title.style.color = '#7c3aed';
+            title.textContent = sectionTitle;
+
+            const badge = document.createElement('div');
+            badge.className = 'content-preview-badge';
+            badge.style.background = '#7c3aed';
+            badge.textContent = 'FINAL';
+
+            header.appendChild(title);
+            header.appendChild(badge);
+
+            const subtitle = document.createElement('div');
+            subtitle.className = 'content-preview-subtitle';
+            const sectionCount = sections ? Object.keys(sections).length : 0;
+            subtitle.textContent = sectionCount + ' sections ready for final review';
+
+            const action = document.createElement('div');
+            action.className = 'content-preview-action';
+            action.textContent = '👁️ Click to review all sections & approve';
+
+            card.appendChild(header);
+            card.appendChild(subtitle);
+            card.appendChild(action);
+
+            card.addEventListener('click', function() {
+                showFinalReviewInPanel(nodeName, markdownContent, sections || finalReviewSectionsData);
+                document.querySelectorAll('.content-preview-card').forEach(function(c) { c.classList.remove('active-review'); });
+                card.classList.add('active-review');
+            });
+
+            previews.insertBefore(card, previews.firstChild);
+            addMessage('system', ' Final document review is ready! ' + sectionCount + ' sections. Click the card to view all sections and approve.');
+        }
+
+        async function approveFinalReview() {
+            if (!sessionActive || !currentThreadId) {
+                showError('No active session');
+                return;
+            }
+
+            const requestBody = {
+                request_id: currentThreadId,
+                message: 'approve',
+                review_context: {
+                    node_name: 'node_emit_final_review',
+                    section_title: 'Final Document Review',
+                    is_final_review: true,
+                },
+            };
+
+            closeMarkdownPanel();
+            addMessage('user', ' Approved final document review. Writing to documents...');
+            document.getElementById('messageInput').disabled = true;
+            document.getElementById('sendBtn').disabled = true;
+            activeReviewContext = null;
+
+            try {
+                const response = await fetch(`${BASE_URL}/api/chat/message`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Shared-Key': 'test',
+                    },
+                    body: JSON.stringify(requestBody),
+                });
+
+                if (!response.ok) {
+                    const err = await response.json();
+                    throw new Error(err.detail || err.message || 'Failed to approve final review');
+                }
+                const data = await response.json();
+                console.log('Final review approval response:', data);
+            } catch (error) {
+                console.error('Error approving final review:', error);
+                showError(error.message);
+                document.getElementById('messageInput').disabled = false;
+                document.getElementById('sendBtn').disabled = false;
+            }
+        }
+
+        async function handleFileSelect(event) {
+            const files = Array.from(event.target.files || []);
+            event.target.value = ''; // reset so same file can be re-selected
+            if (!files.length) return;
+
+            if (!sessionActive || (!isKaigyouSession && !currentCaseId)) {
+                showError('Please start a chat session before uploading a file.');
+                return;
+            }
+
+            // Show chip in uploading state
+            pendingFileUploading = true;
+            document.getElementById('pendingFileName').textContent =
+                files.length > 1 ? `${files.length} files` : files[0].name;
+            document.getElementById('pendingFileStatus').textContent = 'Uploading...';
+            document.getElementById('pendingFileChip').style.display = 'flex';
+            document.getElementById('attachBtn').disabled = true;
+
+            try {
+                const formData = new FormData();
+                files.forEach(file => formData.append('files', file));
+
+                const apiKey = document.getElementById('apiKey').value.trim();
+                const uploadUrl = isKaigyouSession
+                    ? `${BASE_URL}/api/documents/upload`
+                    : `${BASE_URL}/api/documents/upload?case_id=${encodeURIComponent(currentCaseId)}`;
+                const response = await fetch(
+                    uploadUrl,
+                    {
+                        method: 'POST',
+                        headers: { 'X-Shared-Key': apiKey },
+                        body: formData,
+                    }
+                );
+
+                if (!response.ok) {
+                    const err = await response.json();
+                    throw new Error(err.detail || err.message || 'Upload failed');
+                }
+
+                const data = await response.json();
+                const uploadedFiles = Array.isArray(data) ? data : [];
+                uploadedFiles.forEach(file => {
+                    if (file.file_id) pendingFileIds.push(file.file_id);
+                });
+
+                if (!uploadedFiles.length) {
+                    throw new Error('No files were returned from upload response');
+                }
+
+                pendingFileUploading = false;
+                const count = pendingFileIds.length;
+                document.getElementById('pendingFileName').textContent =
+                    count > 1 ? `${count} files` : (uploadedFiles[0].original_filename || '1 file');
+                document.getElementById('pendingFileStatus').textContent = 'Ready to send';
+                document.getElementById('attachBtn').disabled = false;
+                if (uploadedFiles.length > 1) {
+                    showNotification(`${uploadedFiles.length} files uploaded. Hit Send to process them.`);
+                } else {
+                    showNotification(`File "${uploadedFiles[0].original_filename}" uploaded. Hit Send to process it.`);
+                }
+            } catch (err) {
+                console.error('File upload error:', err);
+                showError(err.message);
+                clearPendingFile();
+            }
+        }
+
+        function clearPendingFile() {
+            pendingFileIds = [];
+            pendingFileUploading = false;
+            document.getElementById('pendingFileChip').style.display = 'none';
+            document.getElementById('pendingFileName').textContent = '';
+            document.getElementById('pendingFileStatus').textContent = '';
+            document.getElementById('attachBtn').disabled = false;
+        }
+
+        async function removePendingFile() {
+            const apiKey = document.getElementById('apiKey').value.trim();
+            if (pendingFileIds.length && currentCaseId) {
+                for (const fileId of pendingFileIds) {
+                    try {
+                        await fetch(
+                            `${BASE_URL}/api/documents/delete/${fileId}?case_id=${encodeURIComponent(currentCaseId)}`,
+                            {
+                                method: 'DELETE',
+                                headers: { 'X-Shared-Key': apiKey },
+                            }
+                        );
+                    } catch (err) {
+                        console.error('Failed to delete file from server:', err);
+                    }
+                }
+            }
+            clearPendingFile();
+        }
+
+        // Socket is initialized on session start, not on page load
+
+        // ─── Push to Talk & Voice Features ──────────────────────────────────────────────
+
+        let mediaRecorder = null;
+        let audioChunks = [];
+        let recordingStartTime = null;
+        let recordingTimer = null;
+        let isRecording = false;
+        let ttsAudioContext = null;
+        let isTtsPlaying = false;
+        let autoPlayAudioEnabled = false; // Toggle for auto-playing assistant audio responses
+
+        // Listen for voice-related Socket.IO events
+        function setupVoiceListeners() {
+            // SST response - transcription from user audio
+            socket.on('stt_response', (data) => {
+                console.log('SST response:', data);
+                if (data.status === 'audio_received') {
+                    showNotification(`🎤 Audio received (${data.duration_ms || 0}ms), processing...`);
+                } else if (data.status === 'success') {
+                    // Show the transcription as a user message
+                    // addMessage('user', `🎤 ${data.transcription}`);
+                    document.getElementById('messageInput').value = data.transcription;
+                    showNotification('✅ Voice message transcribed and sent');
+                } else if (data.status === 'no_speech_detected') {
+                    addMessage('system', '🔇 No speech detected in audio. Please try again.');
+                    showNotification('No speech detected');
+                } else if (data.status === 'error') {
+                    addMessage('system', `❌ ${data.message || 'Audio processing failed'}`);
+                    showError(data.message || 'SST processing error');
+                }
+                // Re-enable input
+                document.getElementById('messageInput').disabled = false;
+                document.getElementById('sendBtn').disabled = false;
+            });
+
+            // TTS audio streaming from server
+            socket.on('tts_start', (data) => {
+                console.log('TTS start:', data);
+                // Reset buffers for new stream
+                ttsAudioChunks = [];
+                ttsAudioQueue = [];
+                isTtsBuffering = true;
+                isTtsPlaying = true;
+                updateTtsButtonState('playing');
+            });
+
+            socket.on('tts_audio_chunk', (data) => {
+                console.log('TTS audio chunk received, data type:', Array.isArray(data) ? 'array' : typeof data);
+                
+                let metadata = {};
+                let binaryData = null;
+                
+                if (Array.isArray(data)) {
+                    // Binary format: [metadata_dict, binary_bytes]
+                    metadata = data[0] || {};
+                    binaryData = data[1] || null;
+                } else {
+                    // JSON format with base64 encoded audio
+                    metadata = data;
+                }
+                
+                const chunkIndex = metadata.chunk_index || 0;
+                const totalChunks = metadata.total_chunks || 1;
+                
+                console.log('Metadata:', metadata);
+                
+                // Clear buffers for new transmission
+                if (chunkIndex === 0) {
+                    ttsAudioChunks = [];
+                    ttsAudioQueue = [];
+                }
+                
+                // Process audio data
+                if (binaryData && (binaryData instanceof ArrayBuffer || binaryData instanceof Uint8Array || binaryData instanceof DataView)) {
+                    // Handle binary attachment from socket.io
+                    playTtsAudioChunk(binaryData);
+                } else if (typeof metadata.audio_data === 'string') {
+                    // Handle base64 encoded audio from server
+                    playTtsAudioChunk(metadata.audio_data);
+                } else {
+                    console.warn('No audio data received in event');
+                }
+                
+                // Check if all chunks received
+                if (chunkIndex === totalChunks - 1) {
+                    console.log('All TTS audio chunks received');
+                }
+            });
+
+            socket.on('tts_end', (data) => {
+                console.log('TTS end:', data);
+                isTtsBuffering = false;
+                // Don't immediately set isTtsPlaying to false - wait for playback to finish
+                updateTtsButtonState('playing'); // Still show playing while queue drains
+                
+                // Check if queue is empty and set idle after a delay
+                setTimeout(() => {
+                    if (ttsAudioQueue.length === 0 && !currentTtsSource) {
+                        isTtsPlaying = false;
+                        updateTtsButtonState('idle');
+                        showNotification('🔊 Audio playback completed');
+                    }
+                }, 1000);
+            });
+
+            socket.on('tts_response', (data) => {
+                console.log('TTS response:', data);
+                if (data.status === 'error') {
+                    isTtsPlaying = false;
+                    stopTtsPlayback();
+                    updateTtsButtonState('idle');
+                    showError(data.message || 'TTS failed');
+                }
+            });
+        }
+
+        async function togglePushToTalk() {
+            if (isRecording) {
+                stopRecording();
+            } else {
+                startRecording();
+            }
+        }
+
+        async function startRecording() {
+            if (!sessionActive || !currentThreadId) {
+                showError('Please start a chat session first');
+                return;
+            }
+
+            try {
+                // Request microphone access with specific constraints for WAV-compatible recording
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: {
+                        sampleRate: 16000,
+                        channelCount: 1,
+                        echoCancellation: true,
+                        noiseSuppression: true
+                    } 
+                });
+                
+                // Use WAV mime type if available, fallback to webm/opus
+                const supportedTypes = MediaRecorder.isTypeSupported('audio/wav') 
+                    ? 'audio/wav' 
+                    : (MediaRecorder.isTypeSupported('audio/webm;codecs=opus') 
+                        ? 'audio/webm;codecs=opus' 
+                        : 'audio/webm');
+                
+                mediaRecorder = new MediaRecorder(stream, { mimeType: supportedTypes });
+                audioChunks = [];
+
+                mediaRecorder.ondataavailable = (event) => {
+                    if (event.data.size > 0) {
+                        audioChunks.push(event.data);
+                    }
+                };
+
+                mediaRecorder.onstop = async () => {
+                    // Create blob from recorded chunks
+                    const audioBlob = new Blob(audioChunks, { type: supportedTypes });
+                    const duration = Date.now() - recordingStartTime;
+
+                    // Stop all tracks to release microphone
+                    stream.getTracks().forEach(track => track.stop());
+
+                    // Send audio to server
+                    await sendAudioToServer(audioBlob, duration, supportedTypes);
+                };
+
+                // Start recording
+                mediaRecorder.start();
+                recordingStartTime = Date.now();
+                isRecording = true;
+
+                // Update UI
+                document.getElementById('recordingIndicator').style.display = 'flex';
+                document.getElementById('pttBtn').classList.add('recording');
+                document.getElementById('pttBtn').title = 'Stop Recording';
+
+                // Start duration timer
+                recordingTimer = setInterval(updateRecordingDuration, 1000);
+                updateRecordingDuration();
+
+                console.log('Recording started', { mimeType: supportedTypes });
+
+            } catch (error) {
+                console.error('Error accessing microphone:', error);
+                showError('Could not access microphone. Please check permissions.');
+            }
+        }
+
+        function stopRecording() {
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
+            }
+
+            isRecording = false;
+
+            // Stop timer
+            if (recordingTimer) {
+                clearInterval(recordingTimer);
+                recordingTimer = null;
+            }
+
+            // Update UI
+            document.getElementById('recordingIndicator').style.display = 'none';
+            document.getElementById('pttBtn').classList.remove('recording');
+            document.getElementById('pttBtn').title = 'Push to Talk';
+
+            console.log('Recording stopped');
+        }
+
+        function updateRecordingDuration() {
+            if (!recordingStartTime) return;
+            
+            const elapsed = Date.now() - recordingStartTime;
+            const seconds = Math.floor(elapsed / 1000);
+            const minutes = Math.floor(seconds / 60);
+            const remainingSeconds = seconds % 60;
+            document.getElementById('recordingDuration').textContent = 
+                `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+        }
+
+        async function sendAudioToServer(audioBlob, durationMs, mimeType = 'audio/webm') {
+            if (!socket || !socket.connected) {
+                showError('Not connected to server');
+                return;
+            }
+
+            try {
+                // Disable input while processing
+                document.getElementById('messageInput').disabled = true;
+                document.getElementById('sendBtn').disabled = true;
+
+                // Convert blob to ArrayBuffer
+                const arrayBuffer = await audioBlob.arrayBuffer();
+                const uint8Array = new Uint8Array(arrayBuffer);
+
+                // Send metadata and binary audio data
+                const metadata = {
+                    request_id: currentThreadId,
+                    audio_format: mimeType,
+                    duration_ms: durationMs
+                };
+
+                // Socket.IO binary support: send metadata with binary frame
+                socket.emit('stt_request', metadata, uint8Array);
+
+                console.log('Audio sent to server', {
+                    size: arrayBuffer.byteLength,
+                    duration: durationMs,
+                    format: mimeType
+                });
+
+            } catch (error) {
+                console.error('Error sending audio:', error);
+                showError('Failed to send audio');
+                document.getElementById('messageInput').disabled = false;
+                document.getElementById('sendBtn').disabled = false;
+            }
+        }
+
+        // ─── TTS Audio Playback ─────────────────────────────────────────────────────────
+
+        let ttsAudioChunks = []; // Buffer for incoming audio chunks
+        let ttsAudioQueue = []; // Queue of decoded AudioBuffer objects to play
+        let currentTtsSource = null; // Currently playing audio source
+        let isTtsBuffering = false; // Whether we're still receiving chunks
+
+        function playTtsAudioChunk(audioData) {
+            try {
+                // audioData may be ArrayBuffer, Blob, or base64 string
+                let arrayBuffer;
+
+                if (typeof audioData === 'string') {
+                    // Base64 encoded
+                    const binaryString = atob(audioData);
+                    const bytes = new Uint8Array(binaryString.length);
+                    for (let i = 0; i < binaryString.length; i++) {
+                        bytes[i] = binaryString.charCodeAt(i);
+                    }
+                    arrayBuffer = bytes.buffer;
+                } else if (audioData instanceof ArrayBuffer) {
+                    arrayBuffer = audioData;
+                } else if (audioData.buffer) {
+                    // TypedArray
+                    arrayBuffer = audioData.buffer;
+                } else if (audioData instanceof Blob) {
+                    // Blob - will be handled asynchronously
+                    audioData.arrayBuffer().then(buffer => {
+                        ttsAudioChunks.push(buffer);
+                        decodeAndQueueAudio(buffer);
+                    }).catch(error => {
+                        console.error('Error reading blob:', error);
+                    });
+                    return;
+                } else {
+                    console.warn('Unknown audio data format:', typeof audioData);
+                    return;
+                }
+
+                // Add chunk to buffer
+                ttsAudioChunks.push(arrayBuffer);
+
+                // Decode and queue for playback
+                decodeAndQueueAudio(arrayBuffer);
+
+            } catch (error) {
+                console.error('Error buffering TTS audio chunk:', error);
+            }
+        }
+
+        function decodeAndQueueAudio(arrayBuffer) {
+            if (!ttsAudioContext) {
+                ttsAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+
+            // Decode audio and add to queue
+            ttsAudioContext.decodeAudioData(arrayBuffer.slice(0), (audioBuffer) => {
+                ttsAudioQueue.push(audioBuffer);
+                console.log('Audio chunk decoded and queued, queue length:', ttsAudioQueue.length);
+
+                // Play next if nothing is playing
+                if (!currentTtsSource || currentTtsSource.playbackState === 2) { // ENDED_STATE
+                    playNextQueuedAudio();
+                }
+            }).catch(error => {
+                console.error('Error decoding audio chunk:', error);
+                // Try to play next chunk even if this one failed
+                playNextQueuedAudio();
+            });
+        }
+
+        function playNextQueuedAudio() {
+            if (ttsAudioQueue.length === 0 || !ttsAudioContext) {
+                // Check if streaming is complete and all playback finished
+                if (!isTtsBuffering && ttsAudioChunks.length > 0) {
+                    console.log('All audio chunks played, stream complete');
+                    // Playback complete - will be handled by tts_end timeout
+                }
+                return;
+            }
+
+            // Get next audio buffer from queue
+            const audioBuffer = ttsAudioQueue.shift();
+
+            // Create new source node
+            currentTtsSource = ttsAudioContext.createBufferSource();
+            currentTtsSource.buffer = audioBuffer;
+            currentTtsSource.connect(ttsAudioContext.destination);
+
+            // When this chunk ends, play the next one
+            currentTtsSource.onended = () => {
+                console.log('Audio chunk ended, playing next if available');
+                currentTtsSource = null;
+                // Small delay before playing next chunk for smooth transition
+                setTimeout(() => {
+                    if (ttsAudioQueue.length > 0) {
+                        playNextQueuedAudio();
+                    } else if (!isTtsBuffering) {
+                        // No more chunks in queue and streaming is complete
+                        console.log('All audio chunks played');
+                        setTimeout(() => {
+                            if (!isTtsBuffering && ttsAudioQueue.length === 0 && !currentTtsSource) {
+                                isTtsPlaying = false;
+                                updateTtsButtonState('idle');
+                                showNotification('🔊 Audio playback completed');
+                            }
+                        }, 200);
+                    }
+                }, 50);
+            };
+
+            // Start playback
+            currentTtsSource.start(0);
+            console.log('Playing audio chunk from queue');
+        }
+
+        function stopTtsPlayback() {
+            // Stop current playback
+            if (currentTtsSource) {
+                try {
+                    currentTtsSource.stop();
+                } catch (e) {
+                    // Already stopped
+                }
+                currentTtsSource = null;
+            }
+            // Clear queues
+            ttsAudioQueue = [];
+            ttsAudioChunks = [];
+        }
+
+        function updateTtsButtonState(state) {
+            const ttsButtons = document.querySelectorAll('.tts-btn');
+            ttsButtons.forEach(btn => {
+                if (state === 'playing') {
+                    btn.classList.add('tts-playing');
+                    btn.disabled = true;
+                    btn.textContent = '🔊 Playing...';
+                } else {
+                    btn.classList.remove('tts-playing');
+                    btn.disabled = false;
+                    btn.textContent = '🔊 Listen';
+                }
+            });
+        }
+
+        async function requestTtsForMessage(messageText) {
+            if (!socket || !socket.connected) {
+                showError('Not connected to server');
+                return;
+            }
+
+            if (isTtsPlaying) {
+                showNotification('Audio is already playing');
+                return;
+            }
+
+            try {
+                // Stop any existing playback
+                stopTtsPlayback();
+                updateTtsButtonState('playing');
+                lastAssistantMessageText = null; // Clear stored message when manually triggered
+
+                socket.emit('tts_request', {
+                    text: messageText,
+                    language: 'en',
+                    voice: 'Ono Anna',
+                    provider: 'qwen'
+                });
+
+                console.log('TTS request sent');
+
+            } catch (error) {
+                console.error('Error requesting TTS:', error);
+                showError('Failed to request TTS');
+                updateTtsButtonState('idle');
+            }
+        }
+
+        function addTtsButtonToMessage(messageElement, messageText) {
+            const ttsDiv = document.createElement('div');
+            ttsDiv.className = 'tts-controls';
+            
+            const ttsBtn = document.createElement('button');
+            ttsBtn.className = 'tts-btn';
+            ttsBtn.textContent = '🔊 Listen';
+            ttsBtn.onclick = () => requestTtsForMessage(messageText);
+            
+            ttsDiv.appendChild(ttsBtn);
+            messageElement.appendChild(ttsDiv);
+        }
+
+        // Initialize voice listeners when socket connects
+        const originalInitSocket = initSocket;
+        initSocket = function() {
+            originalInitSocket();
+            // Add voice listeners after socket is created
+            setTimeout(() => {
+                if (socket) {
+                    setupVoiceListeners();
+                }
+            }, 100);
+        };
+
+        // ─── Test Audio ─────────────────────────────────────────────────────────────────
+
+        async function sendTestAudio() {
+            if (!sessionActive || !currentThreadId) {
+                showError('Please start a chat session first');
+                return;
+            }
+
+            if (!socket || !socket.connected) {
+                showError('Not connected to server');
+                return;
+            }
+
+            try {
+                // Disable input while processing
+                document.getElementById('messageInput').disabled = true;
+                document.getElementById('sendBtn').disabled = true;
+
+                // Generate a simple test audio: 1 second sine wave at 440 Hz
+                const sampleRate = 16000;
+                const duration = 1.0; // seconds
+                const frequency = 440; // Hz (A4 note)
+                const numSamples = Math.floor(sampleRate * duration);
+
+                // Generate WAV file
+                const wavBuffer = generateWavBuffer(numSamples, sampleRate, frequency);
+
+                // Send test audio via SST
+                const metadata = {
+                    request_id: currentThreadId,
+                    audio_format: 'audio/wav',
+                    duration_ms: duration * 1000
+                };
+
+                socket.emit('stt_request', metadata, new Uint8Array(wavBuffer));
+
+                addMessage('system', '🔊 Sent test audio (1s sine wave at 440Hz)');
+                console.log('Test audio sent', {
+                    size: wavBuffer.byteLength,
+                    duration: duration * 1000,
+                    format: 'audio/wav'
+                });
+
+            } catch (error) {
+                console.error('Error sending test audio:', error);
+                showError('Failed to send test audio');
+                document.getElementById('messageInput').disabled = false;
+                document.getElementById('sendBtn').disabled = false;
+            }
+        }
+
+        function generateWavBuffer(numSamples, sampleRate, frequency) {
+            // WAV header: 44 bytes
+            const headerSize = 44;
+            const dataSize = numSamples * 2; // 16-bit = 2 bytes per sample
+            const fileSize = headerSize + dataSize;
+
+            const buffer = new ArrayBuffer(fileSize);
+            const view = new DataView(buffer);
+
+            // RIFF header
+            writeString(view, 0, 'RIFF');
+            view.setUint32(4, fileSize - 8, true);
+            writeString(view, 8, 'WAVE');
+
+            // fmt subchunk
+            writeString(view, 12, 'fmt ');
+            view.setUint32(16, 16, true); // Subchunk1Size
+            view.setUint16(20, 1, true);  // AudioFormat (PCM)
+            view.setUint16(22, 1, true);  // NumChannels (mono)
+            view.setUint32(24, sampleRate, true); // SampleRate
+            view.setUint32(28, sampleRate * 2, true); // ByteRate
+            view.setUint16(32, 2, true);  // BlockAlign
+            view.setUint16(34, 16, true); // BitsPerSample
+
+            // data subchunk
+            writeString(view, 36, 'data');
+            view.setUint32(40, dataSize, true);
+
+            // Audio data: sine wave
+            const amplitude = 0.5;
+            for (let i = 0; i < numSamples; i++) {
+                const sample = Math.sin(2 * Math.PI * frequency * i / sampleRate);
+                const int16 = Math.floor(sample * amplitude * 32767);
+                view.setInt16(headerSize + i * 2, int16, true);
+            }
+
+            return buffer;
+        }
+
+        function writeString(view, offset, string) {
+            for (let i = 0; i < string.length; i++) {
+                view.setUint8(offset + i, string.charCodeAt(i));
+            }
+        }
+
+        function toggleAutoPlayAudio() {
+            autoPlayAudioEnabled = !autoPlayAudioEnabled;
+            const btn = document.getElementById('autoPlayAudioBtn');
+            if (autoPlayAudioEnabled) {
+                btn.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
+                btn.title = 'Auto-play audio responses (ON)';
+                btn.textContent = '🔔';
+                showNotification('🔊 Auto-play audio enabled for assistant responses');
+            } else {
+                btn.style.background = 'linear-gradient(135deg, #6b7280 0%, #4b5563 100%)';
+                btn.title = 'Auto-play audio responses (OFF)';
+                btn.textContent = '🔔';
+                showNotification('🔇 Auto-play audio disabled');
+            }
+        }
+
+        // Store last assistant message for audio playback
+        let lastAssistantMessageText = null;
+
+        function playLastAssistantMessageAudio() {
+            if (autoPlayAudioEnabled && lastAssistantMessageText && !isTtsPlaying) {
+                const textToPlay = lastAssistantMessageText;
+                lastAssistantMessageText = null; // Clear to prevent re-playing
+                requestTtsForMessage(textToPlay);
+            }
+        }
+    </script>
+</body>
+</html>

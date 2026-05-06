@@ -1,0 +1,952 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RAG Test — Embed & Retrieve & Chatbot</title>
+  <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+      min-height: 100vh;
+      padding: 24px;
+      color: #e0e0e0;
+    }
+
+    h1 {
+      text-align: center;
+      color: #fff;
+      font-size: 1.8rem;
+      margin-bottom: 24px;
+      letter-spacing: 1px;
+    }
+    h1 span { color: #53d8fb; }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 400px 1fr;
+      gap: 20px;
+      max-width: 1300px;
+      margin: 0 auto;
+    }
+
+    .card {
+      background: #1e2a3a;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+    }
+
+    .card h2 {
+      font-size: 1rem;
+      font-weight: 600;
+      color: #53d8fb;
+      margin-bottom: 16px;
+      border-bottom: 1px solid #2d3d50;
+      padding-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    label {
+      display: block;
+      font-size: 0.78rem;
+      color: #8899aa;
+      margin-bottom: 4px;
+      margin-top: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    label:first-of-type { margin-top: 0; }
+
+    input, select, textarea {
+      width: 100%;
+      background: #111c28;
+      border: 1px solid #2d3d50;
+      border-radius: 6px;
+      color: #e0e0e0;
+      padding: 8px 10px;
+      font-size: 0.9rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    input:focus, select:focus, textarea:focus { border-color: #53d8fb; }
+    textarea { resize: vertical; min-height: 70px; }
+
+    .btn {
+      display: inline-block;
+      margin-top: 14px;
+      padding: 9px 18px;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      font-size: 0.9rem;
+      font-weight: 600;
+      transition: opacity 0.2s, transform 0.1s;
+    }
+    .btn:active { transform: scale(0.98); }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-primary  { background: #53d8fb; color: #0f1e2e; }
+    .btn-success  { background: #2ecc71; color: #0f1e2e; }
+    .btn-danger   { background: #e74c3c; color: #fff; }
+    .btn-sm       { padding: 5px 12px; font-size: 0.8rem; margin-top: 6px; }
+
+    .status-badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+    .badge-pending   { background: #f39c12; color: #000; }
+    .badge-completed { background: #2ecc71; color: #000; }
+    .badge-failed    { background: #e74c3c; color: #fff; }
+    .badge-idle      { background: #2d3d50; color: #8899aa; }
+
+    .log-box {
+      margin-top: 12px;
+      background: #0a1520;
+      border: 1px solid #2d3d50;
+      border-radius: 6px;
+      padding: 10px;
+      font-size: 0.8rem;
+      font-family: monospace;
+      max-height: 160px;
+      overflow-y: auto;
+      color: #7fdbca;
+      line-height: 1.6;
+    }
+    .log-box .err { color: #e74c3c; }
+    .log-box .ok  { color: #2ecc71; }
+    .log-box .info { color: #53d8fb; }
+
+    /* ── Chat panel ── */
+    .chat-panel {
+      display: flex;
+      flex-direction: column;
+      height: 680px;
+    }
+
+    .chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px;
+      background: #111c28;
+      border-radius: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .msg {
+      max-width: 85%;
+      padding: 10px 14px;
+      border-radius: 10px;
+      font-size: 0.9rem;
+      line-height: 1.6;
+      word-break: break-word;
+    }
+    .msg.user {
+      align-self: flex-end;
+      background: #0f3460;
+      color: #e0e0e0;
+      border-bottom-right-radius: 2px;
+    }
+    .msg.assistant {
+      align-self: flex-start;
+      background: #1e2a3a;
+      color: #e0e0e0;
+      border-bottom-left-radius: 2px;
+      border: 1px solid #2d3d50;
+    }
+    .msg.system {
+      align-self: center;
+      background: #0a1520;
+      color: #8899aa;
+      font-size: 0.78rem;
+      font-style: italic;
+      border: 1px dashed #2d3d50;
+    }
+
+    .chat-input-row {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .chat-input-row input {
+      flex: 1;
+      margin: 0;
+    }
+    .chat-input-row button { margin: 0; }
+
+    .empty-state {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: #2d3d50;
+      font-size: 0.9rem;
+      gap: 8px;
+    }
+    .empty-state svg { width: 48px; height: 48px; opacity: 0.4; }
+
+    .spinner {
+      display: inline-block;
+      width: 14px; height: 14px;
+      border: 2px solid #2d3d50;
+      border-top-color: #53d8fb;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      vertical-align: middle;
+      margin-right: 6px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #2d3d50; border-radius: 3px; }
+
+    .section-divider {
+      border: none;
+      border-top: 1px solid #2d3d50;
+      margin: 16px 0;
+    }
+
+    .inline-row {
+      display: flex;
+      gap: 8px;
+      align-items: flex-end;
+    }
+    .inline-row > * { flex: 1; }
+    .inline-row > *:last-child { flex: 0 0 auto; }
+
+    /* ── Chatbot panel ── */
+    .bot-citation {
+      background: #0f1e2e;
+      border: 1px solid #2d3d50;
+      border-radius: 6px;
+      padding: 8px 10px;
+      margin-top: 6px;
+      font-size: 0.8rem;
+    }
+    .bot-citation-meta {
+      font-size: 0.72rem;
+      color: #8899aa;
+      margin-bottom: 4px;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    .bot-citation-text { color: #cce; line-height: 1.5; }
+    details summary { cursor: pointer; font-size: 0.78rem; color: #8899aa; margin-top: 8px; }
+    details summary:hover { color: #53d8fb; }
+  </style>
+</head>
+<body>
+
+<h1>🔍 RAG Test — <span>Embed & Chat</span></h1>
+
+<div class="layout">
+
+  <!-- ═══════════════ LEFT PANEL ═══════════════ -->
+  <div>
+
+    <!-- Config -->
+    <div class="card" style="margin-bottom:16px">
+      <h2>⚙ Config</h2>
+      <label>API Base URL</label>
+      <input id="base-url" type="text" value="http://127.0.0.1:9090" />
+      <label>Shared Key (X-Shared-Key)</label>
+      <input id="shared-key" type="password" placeholder="your_shared_key_here" value="test" />
+    </div>
+
+    <!-- ── STEP 1: Create DataSource (TEMP / Dev only) ── -->
+    <div class="card" style="margin-bottom:16px; border: 1px solid #f39c12;">
+      <h2 style="color:#f39c12;">⚠ Step 1 — Create DataSource <span style="font-size:0.7rem;background:#f39c12;color:#000;padding:2px 7px;border-radius:10px;margin-left:6px;vertical-align:middle;">TEMP · DEV ONLY</span></h2>
+      <p style="font-size:0.78rem;color:#8899aa;margin-bottom:12px">
+        Creates a <code>DataSource</code> row directly in the DB.
+        Normally created by Laravel — this shortcut exists only for local testing.
+      </p>
+
+      <!-- Tab switcher -->
+      <div style="display:flex;gap:6px;margin-bottom:14px">
+        <button id="tab-upload" class="btn btn-primary btn-sm" style="flex:1" onclick="switchTab('upload')">📁 Upload File</button>
+        <button id="tab-manual" class="btn btn-sm" style="flex:1;background:#2d3d50;color:#8899aa" onclick="switchTab('manual')">✏ Text / Q&amp;A</button>
+      </div>
+
+      <!-- ── Upload tab ── -->
+      <div id="create-tab-upload">
+        <label>Title <span style="color:#8899aa;font-size:0.75rem">(optional — defaults to filename)</span></label>
+        <input id="upload-title" type="text" placeholder="My knowledge base" />
+
+        <label style="margin-top:10px">Select File <span style="color:#8899aa;font-size:0.75rem">(PDF · TXT · DOCX · PPTX — max 10 MB)</span></label>
+        <input id="upload-file" type="file" accept=".pdf,.txt,.docx,.pptx"
+               style="background:#111c28;border:1px dashed #2d3d50;padding:10px;cursor:pointer"
+               onchange="onFileSelected()" />
+        <div id="upload-file-info" style="font-size:0.78rem;color:#8899aa;margin-top:4px;display:none"></div>
+
+        <button class="btn btn-success" style="width:100%;margin-top:14px" onclick="doUploadDataSource()">
+          ⬆ Upload &amp; Create DataSource
+        </button>
+      </div>
+
+      <!-- ── Manual tab (text / qa) ── -->
+      <div id="create-tab-manual" style="display:none">
+        <label>Type</label>
+        <select id="create-type" onchange="onCreateTypeChange()">
+          <option value="text">Text</option>
+          <option value="qa">Q&amp;A</option>
+        </select>
+
+        <label>Title</label>
+        <input id="create-title" type="text" placeholder="My test knowledge base" />
+
+        <!-- TEXT fields -->
+        <div id="create-text-fields">
+          <label>Description (optional)</label>
+          <textarea id="create-description" placeholder="Short description of this data source…" style="min-height:50px"></textarea>
+        </div>
+
+        <!-- QA fields -->
+        <div id="create-qa-fields" style="display:none">
+          <label>Description (optional)</label>
+          <textarea id="create-qa-description" placeholder="Short description…" style="min-height:50px"></textarea>
+        </div>
+
+        <button class="btn btn-success" style="width:100%;margin-top:14px" onclick="doCreateDataSource()">
+          + Create DataSource
+        </button>
+      </div>
+
+      <div id="create-log" class="log-box" style="display:none"></div>
+    </div>
+
+    <!-- Embed -->
+    <div class="card" style="margin-bottom:16px">
+      <h2>📦 Step 2 — Embed Data Source</h2>
+
+      <label>Data Source Type</label>
+      <select id="embed-type" onchange="onTypeChange()">
+        <option value="file">File (PDF / TXT / DOCX / PPTX)</option>
+        <option value="text">Text / Description</option>
+        <option value="qa">Q&amp;A Pair</option>
+      </select>
+
+      <label>Data Source ID (UUID)</label>
+      <input id="embed-id" type="text" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
+
+      <!-- FILE fields -->
+      <div id="file-fields">
+        <label>Storage Path (in Supabase)</label>
+        <input id="embed-path" type="text" placeholder="uploads/report.pdf" />
+        <label>MIME Type</label>
+        <select id="embed-mime">
+          <option value="application/pdf">PDF</option>
+          <option value="text/plain">TXT</option>
+          <option value="application/vnd.openxmlformats-officedocument.wordprocessingml.document">DOCX</option>
+          <option value="application/vnd.openxmlformats-officedocument.presentationml.presentation">PPTX</option>
+        </select>
+        <label>File Size (bytes)</label>
+        <input id="embed-size" type="number" placeholder="204800" value="0" />
+      </div>
+
+      <!-- TEXT fields -->
+      <div id="text-fields" style="display:none">
+        <label>Description</label>
+        <textarea id="embed-description" placeholder="Enter the text content to embed..."></textarea>
+      </div>
+
+      <!-- QA fields -->
+      <div id="qa-fields" style="display:none">
+        <label>Question</label>
+        <input id="embed-question" type="text" placeholder="What documents are required?" />
+        <label>Answer</label>
+        <textarea id="embed-answer" placeholder="The required documents are..."></textarea>
+      </div>
+
+      <label style="margin-top:14px">
+        <input type="checkbox" id="embed-retry" style="width:auto;margin-right:6px" />
+        Re-embed (retry=true — clears existing embeddings)
+      </label>
+
+      <button class="btn btn-primary" style="width:100%" onclick="doEmbed()">
+        ▶ Queue Embedding Task
+      </button>
+
+      <div id="embed-log" class="log-box" style="display:none"></div>
+
+      <!-- Status Polling -->
+      <hr class="section-divider" />
+      <h2 style="margin-top:0">📡 Embedding Status</h2>
+      <div class="inline-row">
+        <div>
+          <label>Data Source ID to check</label>
+          <input id="status-id" type="text" placeholder="auto-filled after embed" />
+        </div>
+        <button class="btn btn-success btn-sm" onclick="startPolling()" id="poll-btn">Poll</button>
+      </div>
+
+      <div style="margin-top:10px; display:flex; align-items:center; gap:10px">
+        <span id="status-badge" class="status-badge badge-idle">Idle</span>
+        <span id="poll-spinner" style="display:none"><span class="spinner"></span>Polling...</span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ═══════════════ RIGHT PANEL — CHATBOT ═══════════════ -->
+  <div class="card chat-panel">
+    <h2>🤖 Step 3 — LangGraph Chatbot</h2>
+
+    <!-- Session controls -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+      <div>
+        <label style="margin-top:0">Channel</label>
+        <select id="bot-channel">
+          <option value="web">Web</option>
+          <option value="line">LINE</option>
+          <option value="slack">Slack</option>
+        </select>
+      </div>
+      <div>
+        <label style="margin-top:0">Locale</label>
+        <input id="bot-locale" type="text" value="ja" />
+      </div>
+    </div>
+
+    <div style="display:flex;gap:8px;margin-bottom:8px">
+      <button class="btn btn-primary btn-sm" style="flex:0 0 auto;margin-top:0" onclick="createBotSession()">1. Create Session</button>
+      <input id="bot-session-id" type="text" placeholder="session id auto-filled" readonly
+             style="flex:1;font-size:0.75rem;color:#53d8fb;margin:0" />
+    </div>
+
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
+      <button class="btn btn-success btn-sm" style="flex:0 0 auto;margin-top:0"
+              onclick="connectBot()" id="bot-connect-btn" disabled>2. Connect &amp; Join Room</button>
+      <span id="bot-status-badge" class="status-badge badge-idle">Disconnected</span>
+    </div>
+
+    <div id="bot-log" class="log-box" style="display:none;margin-bottom:10px"></div>
+
+    <div class="chat-messages" id="bot-chat-messages">
+      <div class="empty-state" id="bot-empty-state">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path stroke-linecap="round" stroke-linejoin="round"
+            d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+        </svg>
+        <span>Create a session and connect to start chatting</span>
+      </div>
+    </div>
+
+    <div class="chat-input-row">
+      <input id="bot-input" type="text" placeholder="Ask the chatbot…" disabled
+             onkeydown="if(event.key==='Enter')sendBotMessage()" />
+      <button class="btn btn-primary" onclick="sendBotMessage()" id="bot-send-btn" disabled>Send</button>
+      <button class="btn btn-danger" onclick="clearBotChat()" title="Clear">✕</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  // ─── State ────────────────────────────────────────────────────────────────
+  let pollTimer = null;
+  let lastEmbedId = null;
+
+  // ─── Step 1: Create DataSource (TEMP) ────────────────────────────────────
+  function switchTab(tab) {
+    const isUpload = tab === 'upload';
+    document.getElementById('create-tab-upload').style.display = isUpload ? 'block' : 'none';
+    document.getElementById('create-tab-manual').style.display = isUpload ? 'none' : 'block';
+    document.getElementById('tab-upload').style.background = isUpload ? '#53d8fb' : '#2d3d50';
+    document.getElementById('tab-upload').style.color      = isUpload ? '#0f1e2e' : '#8899aa';
+    document.getElementById('tab-manual').style.background = isUpload ? '#2d3d50' : '#53d8fb';
+    document.getElementById('tab-manual').style.color      = isUpload ? '#8899aa' : '#0f1e2e';
+  }
+
+  function onFileSelected() {
+    const input = document.getElementById('upload-file');
+    const info  = document.getElementById('upload-file-info');
+    if (input.files && input.files[0]) {
+      const f = input.files[0];
+      const kb = (f.size / 1024).toFixed(1);
+      info.style.display = 'block';
+      info.textContent = `${f.name}  •  ${kb} KB  •  ${f.type}`;
+    }
+  }
+
+  async function doUploadDataSource() {
+    const { base, key } = cfg();
+    if (!key) { alert('Enter your Shared Key first'); return; }
+
+    const fileInput = document.getElementById('upload-file');
+    if (!fileInput.files || !fileInput.files[0]) { alert('Select a file first'); return; }
+
+    const file  = fileInput.files[0];
+    const title = document.getElementById('upload-title').value.trim();
+
+    // ── Step A: Upload file via existing /api/documents/upload ──
+    const formData = new FormData();
+    formData.append('files', file);   // endpoint expects field name "files"
+
+    log('create-log', `Uploading <b>${file.name}</b> (${(file.size/1024).toFixed(1)} KB) via /api/documents/upload…`, 'info');
+
+    let fileId, contentType, fileSize;
+    try {
+      const uploadRes = await fetch(`${base}/api/documents/upload`, {
+        method: 'POST',
+        headers: { 'X-Shared-Key': key },   // no Content-Type — browser sets multipart boundary
+        body: formData,
+      });
+
+      const uploadData = await uploadRes.json().catch(() => ({}));
+
+      if (!uploadRes.ok) {
+        log('create-log', `❌ Upload failed ${uploadRes.status}: ${uploadData.detail || JSON.stringify(uploadData)}`, 'err');
+        return;
+      }
+
+      // Response is list[FileUploadResponse]
+      const fileRecord = Array.isArray(uploadData) ? uploadData[0] : uploadData;
+      fileId      = fileRecord.file_id;
+      contentType = fileRecord.content_type;
+      fileSize    = fileRecord.size;
+      log('create-log', `✅ Uploaded! file_id: <b>${fileId}</b>`, 'ok');
+    } catch (e) {
+      log('create-log', `❌ Network error during upload: ${e.message}`, 'err');
+      return;
+    }
+
+    // ── Step B: Create DataSource row referencing the uploaded Documents record ──
+    log('create-log', 'Creating DataSource from uploaded file…', 'info');
+
+    try {
+      const createRes = await fetch(`${base}/api/rag/test/create-datasource`, {
+        method: 'POST',
+        headers: headers(),
+        body: JSON.stringify({ type: 'file', title: title || file.name, file_id: fileId }),
+      });
+
+      const createData = await createRes.json().catch(() => ({}));
+
+      if (createRes.status === 201) {
+        const id = createData.id;
+        log('create-log', `✅ DataSource created! ID: <b>${id}</b>`, 'ok');
+
+        // Auto-fill Step 2 embed form
+        document.getElementById('embed-id').value   = id;
+        document.getElementById('embed-type').value = 'file';
+        onTypeChange();
+        document.getElementById('embed-path').value = createData.storage_path || '';
+        const mimeSelect = document.getElementById('embed-mime');
+        for (const opt of mimeSelect.options) {
+          if (opt.value === (createData.mime_type || contentType)) { opt.selected = true; break; }
+        }
+        document.getElementById('embed-size').value = createData.size || fileSize;
+        document.getElementById('status-id').value  = id;
+        lastEmbedId = id;
+        log('create-log', '↓ Step 2 Embed form auto-filled — click "Queue Embedding Task" next', 'info');
+      } else {
+        log('create-log', `❌ Error ${createRes.status}: ${createData.detail || JSON.stringify(createData)}`, 'err');
+      }
+    } catch (e) {
+      log('create-log', `❌ Network error during create: ${e.message}`, 'err');
+    }
+  }
+
+  function onCreateTypeChange() {
+    const t = document.getElementById('create-type').value;
+    document.getElementById('create-text-fields').style.display = t === 'text' ? 'block' : 'none';
+    document.getElementById('create-qa-fields').style.display   = t === 'qa'   ? 'block' : 'none';
+  }
+
+  async function doCreateDataSource() {
+    const { base, key } = cfg();
+    if (!key) { alert('Enter your Shared Key first'); return; }
+
+    const type  = document.getElementById('create-type').value;
+    const title = document.getElementById('create-title').value.trim();
+    if (!title) { alert('Enter a title'); return; }
+
+    let body = { type, title };
+
+    if (type === 'text') {
+      body.description = document.getElementById('create-description').value.trim() || null;
+      body.mime_type   = 'text/plain';
+      body.size        = 0;
+    } else if (type === 'qa') {
+      body.description = document.getElementById('create-qa-description').value.trim() || null;
+      body.mime_type   = 'text/plain';
+      body.size        = 0;
+    }
+
+    log('create-log', `Creating DataSource (type=${type})…`, 'info');
+
+    try {
+      const res = await fetch(`${base}/api/rag/test/create-datasource`, {
+        method: 'POST',
+        headers: headers(),
+        body: JSON.stringify(body),
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (res.status === 201) {
+        const id = data.id;
+        log('create-log', `✅ Created! ID: <b>${id}</b>`, 'ok');
+        // Auto-fill Step 2 embed form
+        document.getElementById('embed-id').value   = id;
+        document.getElementById('embed-type').value = type;
+        onTypeChange();
+        if (type === 'text') {
+          document.getElementById('embed-description').value =
+            document.getElementById('create-description').value.trim();
+        }
+        document.getElementById('status-id').value = id;
+        lastEmbedId = id;
+        log('create-log', '↓ Step 2 Embed form auto-filled — click "Queue Embedding Task" next', 'info');
+      } else {
+        log('create-log', `❌ Error ${res.status}: ${data.detail || JSON.stringify(data)}`, 'err');
+      }
+    } catch (e) {
+      log('create-log', `❌ Network error: ${e.message}`, 'err');
+    }
+  }
+
+  // ─── Helpers ─────────────────────────────────────────────────────────────
+  function cfg() {
+    return {
+      base: document.getElementById('base-url').value.replace(/\/$/, ''),
+      key: document.getElementById('shared-key').value,
+    };
+  }
+
+  function headers() {
+    return {
+      'Content-Type': 'application/json',
+      'X-Shared-Key': cfg().key,
+    };
+  }
+
+  function log(boxId, msg, cls = '') {
+    const box = document.getElementById(boxId);
+    box.style.display = 'block';
+    const ts = new Date().toLocaleTimeString();
+    box.innerHTML += `<div class="${cls}">[${ts}] ${msg}</div>`;
+    box.scrollTop = box.scrollHeight;
+  }
+
+  function onTypeChange() {
+    const t = document.getElementById('embed-type').value;
+    document.getElementById('file-fields').style.display = t === 'file' ? 'block' : 'none';
+    document.getElementById('text-fields').style.display = t === 'text' ? 'block' : 'none';
+    document.getElementById('qa-fields').style.display = t === 'qa' ? 'block' : 'none';
+  }
+
+  // ─── Embed ────────────────────────────────────────────────────────────────
+  async function doEmbed() {
+    const { base, key } = cfg();
+    if (!key) { alert('Enter your Shared Key first'); return; }
+
+    const type = document.getElementById('embed-type').value;
+    const id = document.getElementById('embed-id').value.trim();
+    const retry = document.getElementById('embed-retry').checked;
+
+    if (!id) { alert('Enter a Data Source ID'); return; }
+
+    let payload = { type, retry };
+
+    if (type === 'file') {
+      payload.data = {
+        id,
+        path: document.getElementById('embed-path').value.trim(),
+        mime_type: document.getElementById('embed-mime').value,
+        size: parseInt(document.getElementById('embed-size').value) || 0,
+      };
+    } else if (type === 'text') {
+      payload.data = {
+        id,
+        description: document.getElementById('embed-description').value.trim(),
+      };
+    } else if (type === 'qa') {
+      payload.data = {
+        id,
+        question: document.getElementById('embed-question').value.trim(),
+        answer: document.getElementById('embed-answer').value.trim(),
+      };
+    }
+
+    log('embed-log', `Sending embed request for <b>${id}</b>…`, 'info');
+
+    try {
+      const res = await fetch(`${base}/api/rag/embed`, {
+        method: 'POST',
+        headers: headers(),
+        body: JSON.stringify(payload),
+      });
+
+      if (res.status === 202) {
+        log('embed-log', '✅ Task queued (202 Accepted) — worker is now embedding', 'ok');
+        lastEmbedId = id;
+        document.getElementById('status-id').value = id;
+        setBadge('pending');
+        startPolling();
+      } else if (res.status === 204) {
+        log('embed-log', '⚠ Already embedded (204). Use retry=true to re-embed.', 'info');
+        setBadge('completed');
+      } else {
+        const body = await res.json().catch(() => ({}));
+        log('embed-log', `❌ Error ${res.status}: ${body.detail || JSON.stringify(body)}`, 'err');
+      }
+    } catch (e) {
+      log('embed-log', `❌ Network error: ${e.message}`, 'err');
+    }
+  }
+
+  // ─── Status Polling ───────────────────────────────────────────────────────
+  function setBadge(status) {
+    const el = document.getElementById('status-badge');
+    const map = {
+      pending: ['badge-pending', 'PENDING'],
+      completed: ['badge-completed', 'COMPLETED'],
+      failed: ['badge-failed', 'FAILED'],
+      idle: ['badge-idle', 'Idle'],
+    };
+    el.className = 'status-badge ' + (map[status]?.[0] || 'badge-idle');
+    el.textContent = map[status]?.[1] || status;
+  }
+
+  function startPolling() {
+    if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+    const id = document.getElementById('status-id').value.trim();
+    if (!id) { alert('Enter a Data Source ID to poll'); return; }
+
+    document.getElementById('poll-spinner').style.display = 'inline';
+    document.getElementById('poll-btn').disabled = true;
+
+    // Poll every 3 seconds
+    pollTimer = setInterval(() => pollStatus(id), 3000);
+    pollStatus(id); // immediate first check
+  }
+
+  async function pollStatus(id) {
+    const { base, key } = cfg();
+    try {
+      const res = await fetch(`${base}/api/rag/datasource/${id}/status`, {
+        headers: { 'X-Shared-Key': key },
+      });
+
+      if (res.status === 404) {
+        setBadge('failed');
+        stopPolling();
+        log('embed-log', '❌ Data source not found in DB', 'err');
+        return;
+      }
+      if (!res.ok) return;
+
+      const data = await res.json();
+      if (data.is_embedded) {
+        setBadge('completed');
+        stopPolling();
+        log('embed-log', '✅ Embedding COMPLETED — ready to search!', 'ok');
+      } else if (data.status === 'failed') {
+        setBadge('failed');
+        stopPolling();
+        log('embed-log', '❌ Embedding FAILED', 'err');
+      } else {
+        setBadge('pending');
+      }
+    } catch (e) {
+      // Network error — keep polling
+    }
+  }
+
+  function stopPolling() {
+    if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+    document.getElementById('poll-spinner').style.display = 'none';
+    document.getElementById('poll-btn').disabled = false;
+  }
+
+  function escHtml(str) {
+    return (str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  // ─── Chatbot ───────────────────────────────────────────────────────────────
+  let botSocket = null;
+  let botSessionId = null;
+
+  async function createBotSession() {
+    const { base, key } = cfg();
+    if (!key) { alert('Enter your Shared Key first'); return; }
+
+    const channel = document.getElementById('bot-channel').value;
+    const locale  = document.getElementById('bot-locale').value || 'ja';
+
+    botLog('Creating chatbot session…', 'info');
+
+    try {
+      const res  = await fetch(`${base}/api/public-chatbot/session`, {
+        method: 'POST',
+        headers: headers(),
+        body: JSON.stringify({ channel, locale }),
+      });
+      const data = await res.json().catch(() => ({}));
+
+      if (res.status === 201) {
+        botSessionId = data.id;
+        document.getElementById('bot-session-id').value = data.id;
+        document.getElementById('bot-connect-btn').disabled = false;
+        botLog(`✅ Session created: <b>${data.id}</b>`, 'ok');
+      } else {
+        botLog(`❌ Error ${res.status}: ${data.detail || JSON.stringify(data)}`, 'err');
+      }
+    } catch (e) {
+      botLog(`❌ Network error: ${e.message}`, 'err');
+    }
+  }
+
+  function connectBot() {
+    const { base } = cfg();
+    if (!botSessionId) { alert('Create a session first'); return; }
+    if (botSocket) { botSocket.disconnect(); }
+
+    botLog('Connecting Socket.IO…', 'info');
+    setBotStatus('connecting');
+
+    botSocket = io(base, { transports: ['websocket', 'polling'] });
+
+    botSocket.on('connect', () => {
+      botLog('Socket connected — joining chatbot room…', 'info');
+      botSocket.emit('join_chatbot_session', { session_id: botSessionId });
+    });
+
+    botSocket.on('chatbot_session_joined', () => {
+      botLog('✅ Joined room. Ready to chat!', 'ok');
+      setBotStatus('connected');
+      document.getElementById('bot-input').disabled   = false;
+      document.getElementById('bot-send-btn').disabled = false;
+      addBotMsg('セッションに接続しました。質問をどうぞ。', 'system');
+    });
+
+    botSocket.on('chatbot_response', (data) => {
+      renderBotResponse(data);
+    });
+
+    botSocket.on('error', (data) => {
+      botLog(`❌ Socket error: ${data.message || JSON.stringify(data)}`, 'err');
+      const thinking = document.querySelector('[data-thinking="1"]');
+      if (thinking) thinking.remove();
+    });
+
+    botSocket.on('disconnect', () => {
+      setBotStatus('disconnected');
+      botLog('Disconnected', 'info');
+      document.getElementById('bot-input').disabled   = true;
+      document.getElementById('bot-send-btn').disabled = true;
+    });
+  }
+
+  function sendBotMessage() {
+    if (!botSocket || !botSessionId) return;
+    const input = document.getElementById('bot-input');
+    const msg   = input.value.trim();
+    if (!msg) return;
+
+    input.value = '';
+    addBotMsg(msg, 'user');
+    const thinking = addBotMsg('<span class="spinner"></span>Thinking…', 'system');
+    thinking.dataset.thinking = '1';
+
+    botSocket.emit('chatbot_message', { session_id: botSessionId, message: msg });
+  }
+
+  function renderBotResponse(data) {
+    const thinking = document.querySelector('[data-thinking="1"]');
+    if (thinking) thinking.remove();
+
+    const tier      = (data.confidence_tier || 'low').toLowerCase();
+    const score     = typeof data.confidence_score === 'number'
+      ? (data.confidence_score * 100).toFixed(1)
+      : '—';
+    const handoff   = data.handoff_triggered;
+    const tierColor = { high: '#2ecc71', medium: '#f39c12', low: '#e74c3c' }[tier] || '#8899aa';
+
+    let html = `<div style="white-space:pre-wrap">${escHtml(data.response)}</div>`;
+
+    html += `
+      <div style="margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <span style="background:${tierColor};color:#000;padding:2px 8px;border-radius:10px;font-size:0.72rem;font-weight:700;text-transform:uppercase">${tier}</span>
+        <span style="font-size:0.72rem;color:#8899aa">score: ${score}%</span>
+        ${handoff ? '<span style="background:#e74c3c;color:#fff;padding:2px 8px;border-radius:10px;font-size:0.72rem;font-weight:700">HANDOFF</span>' : ''}
+      </div>`;
+
+    const citations = data.citations || [];
+    if (citations.length) {
+      const citHtml = citations.map((c) => {
+        const sourceLabel = escHtml(c.source_label || c.source_title || '参考情報');
+        const sourceLink = c.source_url
+          ? `<a href="${escHtml(c.source_url)}" target="_blank" style="color:#53d8fb">source ↗</a>`
+          : '';
+        return `
+          <div class="bot-citation">
+            <div class="bot-citation-meta">
+              <span>${sourceLabel}</span>
+              ${sourceLink}
+            </div>
+            <div class="bot-citation-text">${escHtml(c.chunk_text)}</div>
+          </div>`;
+      }).join('');
+
+      html += `<details><summary>📎 ${citations.length} citation${citations.length > 1 ? 's' : ''}</summary>${citHtml}</details>`;
+    }
+
+    addBotMsg(html, 'assistant');
+  }
+
+  function addBotMsg(content, role = 'assistant') {
+    const box   = document.getElementById('bot-chat-messages');
+    const empty = document.getElementById('bot-empty-state');
+    if (empty) empty.remove();
+
+    const div = document.createElement('div');
+    div.className = `msg ${role}`;
+    div.innerHTML = content;
+    box.appendChild(div);
+    box.scrollTop = box.scrollHeight;
+    return div;
+  }
+
+  function setBotStatus(status) {
+    const el  = document.getElementById('bot-status-badge');
+    const map = {
+      connected:    ['badge-completed', 'Connected'],
+      connecting:   ['badge-pending',   'Connecting…'],
+      disconnected: ['badge-idle',      'Disconnected'],
+    };
+    const [cls, label] = map[status] || ['badge-idle', status];
+    el.className  = 'status-badge ' + cls;
+    el.textContent = label;
+  }
+
+  function botLog(msg, cls = '') { log('bot-log', msg, cls); }
+
+  function clearBotChat() {
+    document.getElementById('bot-chat-messages').innerHTML = `
+      <div class="empty-state" id="bot-empty-state">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path stroke-linecap="round" stroke-linejoin="round"
+            d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+        </svg>
+        <span>Create a session and connect to start chatting</span>
+      </div>`;
+  }
+
+</script>
+</body>
+</html>
